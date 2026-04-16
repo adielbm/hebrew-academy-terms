@@ -149,7 +149,7 @@
 }
 
 .result-english-inline {
-  margin-inline-start: auto;
+  margin-inline-end: auto;
   text-align: left;
   direction: ltr;
   font-size: 1.08rem;
