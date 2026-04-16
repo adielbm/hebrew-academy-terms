@@ -13,6 +13,58 @@ import './styles/components.css';
 
 type View = 'search' | 'dictionaries' | 'dictionary';
 
+const FALLBACK_REPO_BASE = '/hebrew-academy-terms/';
+
+function normalizeBasePath(path: string): string {
+  if (!path.startsWith('/')) {
+    return '/';
+  }
+
+  return path.endsWith('/') ? path : `${path}/`;
+}
+
+function detectSearchBasePath(pathname: string): string {
+  const configuredBasePath = normalizeBasePath(import.meta.env.BASE_URL || '/');
+
+  if (configuredBasePath !== '/') {
+    return configuredBasePath;
+  }
+
+  if (pathname.startsWith(FALLBACK_REPO_BASE)) {
+    return FALLBACK_REPO_BASE;
+  }
+
+  return '/';
+}
+
+function extractQueryFromPath(pathname: string, basePath: string): string {
+  if (!pathname.startsWith(basePath)) {
+    return '';
+  }
+
+  const rest = pathname.slice(basePath.length).replace(/^\/+/, '');
+  if (!rest) {
+    return '';
+  }
+
+  const firstSegment = rest.split('/')[0];
+
+  try {
+    return decodeURIComponent(firstSegment);
+  } catch {
+    return firstSegment;
+  }
+}
+
+function buildSearchPath(query: string, basePath: string): string {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return basePath;
+  }
+
+  return `${basePath}${encodeURIComponent(trimmed)}`;
+}
+
 export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,12 +76,23 @@ export default function App() {
   const [useVowels, setUseVowels] = useState(true);
   const [searchResults, setSearchResults] = useState<IndexedTerm[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchBasePath, setSearchBasePath] = useState('/');
   
   const [selectedDictCode, setSelectedDictCode] = useState<string | null>(null);
   const [selectedDictName, setSelectedDictName] = useState<string | null>(null);
 
   // Initialize data
   useEffect(() => {
+    const basePath = detectSearchBasePath(window.location.pathname);
+    setSearchBasePath(basePath);
+
+    const queryFromPath = extractQueryFromPath(window.location.pathname, basePath);
+    if (queryFromPath) {
+      setView('search');
+      setDraftQuery(queryFromPath);
+      setSubmittedQuery(queryFromPath);
+    }
+
     const init = async () => {
       try {
         console.log('Starting data initialization...');
@@ -51,6 +114,30 @@ export default function App() {
 
     init();
   }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const nextQuery = extractQueryFromPath(window.location.pathname, searchBasePath);
+      setView('search');
+      setSelectedDictCode(null);
+      setSelectedDictName(null);
+      setDraftQuery(nextQuery);
+      setSubmittedQuery(nextQuery);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [searchBasePath]);
+
+  useEffect(() => {
+    const nextPath = buildSearchPath(submittedQuery, searchBasePath);
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, '', nextPath);
+    }
+  }, [submittedQuery, searchBasePath]);
 
   // Handle search
   useEffect(() => {
@@ -115,6 +202,8 @@ export default function App() {
     setDraftQuery(queryText);
     setSubmittedQuery(queryText);
   };
+
+  const getSearchHref = (queryText: string) => buildSearchPath(queryText, searchBasePath);
 
   const handleBackToDictionary = () => {
     setView('dictionaries');
@@ -221,6 +310,7 @@ export default function App() {
                       useVowels={useVowels}
                       onTermClick={handleTermClick}
                       onSearchText={handleSearchText}
+                      getSearchHref={getSearchHref}
                     />
                   ))}
                 </div>
@@ -248,6 +338,7 @@ export default function App() {
           useVowels={useVowels}
           onTermClick={handleTermClick}
           onSearchText={handleSearchText}
+          getSearchHref={getSearchHref}
           onBack={handleBackToDictionary}
         />
       )}

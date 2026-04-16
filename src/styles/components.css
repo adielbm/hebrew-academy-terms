@@ -104,8 +104,10 @@
   background: none;
   border: none;
   color: var(--color-text);
+  cursor: pointer;
   padding: 0;
   text-align: start;
+  text-decoration: none;
   font: inherit;
   font-size: 1.22rem !important;
   line-height: 1.35;
@@ -119,9 +121,11 @@
 .term-link {
   background: none;
   border: none;
+  color: inherit;
   font: inherit;
   padding: 0;
   text-align: start;
+  text-decoration: none;
   line-height: 1.35;
 }
 

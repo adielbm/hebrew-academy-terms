@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, MouseEvent } from 'react';
 import { IndexedTerm } from '../types';
 
 interface TermItemProps {
@@ -6,6 +6,7 @@ interface TermItemProps {
   useVowels: boolean;
   onTermClick: (term: IndexedTerm) => void;
   onSearchText: (query: string) => void;
+  getSearchHref: (query: string) => string;
 }
 
 export const TermItem: FC<TermItemProps> = ({
@@ -13,6 +14,7 @@ export const TermItem: FC<TermItemProps> = ({
   useVowels,
   onTermClick,
   onSearchText,
+  getSearchHref,
 }) => {
   const hebrew = useVowels ? term.hebrew_with_vowels : term.hebrew_without_vowels;
   const uniqueSynonyms = Array.from(
@@ -43,43 +45,74 @@ export const TermItem: FC<TermItemProps> = ({
     return (
       <>
         <span>{prefix}</span>
-        <button
-          type="button"
+        <a
           className="term-link hebrew-text"
-          onClick={() => onSearchText(target)}
+          href={getSearchHref(target)}
+          onClick={(event) => handleSearchLinkClick(event, target)}
           aria-label={`חפש את המונח ${target}`}
         >
           {target}
-        </button>
+        </a>
       </>
     );
+  };
+
+  const handleSearchLinkClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    query: string
+  ) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    onSearchText(query);
   };
 
   return (
     <div className={`result-item ${term.is_obsolete ? 'obsolete' : ''}`}>
       <div className="result-header">
         <div className="result-hebrew">
-          <button
-            type="button"
+          <a
             className="term-link hebrew-text"
-            onClick={() => onTermClick(term)}
+            href={getSearchHref(hebrew)}
+            onClick={(event) => {
+              if (
+                event.button !== 0 ||
+                event.metaKey ||
+                event.altKey ||
+                event.ctrlKey ||
+                event.shiftKey
+              ) {
+                return;
+              }
+
+              event.preventDefault();
+              onTermClick(term);
+            }}
             aria-label={`חפש את המונח ${hebrew} בכל המילונים`}
           >
             {hebrew}
-          </button>
+          </a>
         </div>
         {term.english_translations.length > 0 && (
           <div className="result-english-inline english-text">
             {term.english_translations.map((eng, index) => (
               <span key={`${eng}-${index}`}>
-                <button
-                  type="button"
+                <a
                   className="term-link english-text"
-                  onClick={() => onSearchText(eng)}
+                  href={getSearchHref(eng)}
+                  onClick={(event) => handleSearchLinkClick(event, eng)}
                   aria-label={`חפש את המונח באנגלית ${eng}`}
                 >
                   {eng}
-                </button>
+                </a>
                 {index < term.english_translations.length - 1 && (
                   <span aria-hidden="true">, </span>
                 )}
@@ -101,14 +134,14 @@ export const TermItem: FC<TermItemProps> = ({
           <div className="synonyms-list">
             {uniqueSynonyms.map((synonym, index) => (
               <span key={`${synonym}-${index}`}>
-                <button
-                  type="button"
+                <a
                   className="term-link hebrew-text"
-                  onClick={() => onSearchText(synonym)}
+                  href={getSearchHref(synonym)}
+                  onClick={(event) => handleSearchLinkClick(event, synonym)}
                   aria-label={`חפש את הנרדפת ${synonym}`}
                 >
                   {synonym}
-                </button>
+                </a>
                 {index < uniqueSynonyms.length - 1 && (
                   <span aria-hidden="true">, </span>
                 )}

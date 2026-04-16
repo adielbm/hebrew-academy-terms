@@ -9,6 +9,7 @@ interface DictionaryBrowserProps {
   useVowels: boolean;
   onTermClick: (term: IndexedTerm) => void;
   onSearchText: (query: string) => void;
+  getSearchHref: (query: string) => string;
   onBack: () => void;
 }
 
@@ -18,6 +19,7 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
   useVowels,
   onTermClick,
   onSearchText,
+  getSearchHref,
   onBack,
 }) => {
   const [draftQuery, setDraftQuery] = useState('');
@@ -131,6 +133,7 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
                   useVowels={useVowels}
                   onTermClick={onTermClick}
                   onSearchText={onSearchText}
+                  getSearchHref={getSearchHref}
                 />
               ))}
             </div>
