@@ -103,13 +103,12 @@
 .term-link {
   background: none;
   border: none;
-  color: inherit;
+  color: var(--color-text);
   padding: 0;
   text-align: start;
   font: inherit;
   font-size: 1.22rem !important;
   line-height: 1.35;
-font-weight: bold !important;
 }
 
 .term-link:hover {
@@ -120,7 +119,6 @@ font-weight: bold !important;
 .term-link {
   background: none;
   border: none;
-  color: inherit;
   font: inherit;
   padding: 0;
   text-align: start;

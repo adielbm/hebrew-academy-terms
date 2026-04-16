@@ -103,15 +103,12 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
             }
           }}
         />
-        <button onClick={handleSearch} aria-label="חפש בתוך המילון">
-          חפש
-        </button>
       </div>
 
       <div className="results-container">
         {!submittedQuery ? (
           <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>
-            הקלידו מונח ולחצו על חיפוש
+            הקלידו מונח ולחצו Enter
           </p>
         ) : loading ? (
           <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>

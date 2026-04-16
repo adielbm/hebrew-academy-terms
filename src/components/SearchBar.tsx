@@ -25,10 +25,6 @@ export const SearchBar: FC<SearchBarProps> = ({
         }}
         aria-label="חיפוש מונח"
       />
-
-      <button onClick={onSearch} aria-label="בצע חיפוש">
-        חפש
-      </button>
     </div>
   );
 };
