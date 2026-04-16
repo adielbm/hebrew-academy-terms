@@ -56,13 +56,24 @@ function extractQueryFromPath(pathname: string, basePath: string): string {
   }
 }
 
-function buildSearchPath(query: string, basePath: string): string {
+function extractQueryFromUrl(location: Location, basePath: string): string {
+  const queryParam = new URLSearchParams(location.search).get('q');
+  if (queryParam) {
+    return queryParam;
+  }
+
+  // Backward compatibility: read older path-based URLs.
+  return extractQueryFromPath(location.pathname, basePath);
+}
+
+function buildSearchUrl(query: string, basePath: string): string {
   const trimmed = query.trim();
   if (!trimmed) {
     return basePath;
   }
 
-  return `${basePath}${encodeURIComponent(trimmed)}`;
+  const params = new URLSearchParams({ q: trimmed });
+  return `${basePath}?${params.toString()}`;
 }
 
 export default function App() {
@@ -86,11 +97,11 @@ export default function App() {
     const basePath = detectSearchBasePath(window.location.pathname);
     setSearchBasePath(basePath);
 
-    const queryFromPath = extractQueryFromPath(window.location.pathname, basePath);
-    if (queryFromPath) {
+    const queryFromUrl = extractQueryFromUrl(window.location, basePath);
+    if (queryFromUrl) {
       setView('search');
-      setDraftQuery(queryFromPath);
-      setSubmittedQuery(queryFromPath);
+      setDraftQuery(queryFromUrl);
+      setSubmittedQuery(queryFromUrl);
     }
 
     const init = async () => {
@@ -117,7 +128,7 @@ export default function App() {
 
   useEffect(() => {
     const handlePopState = () => {
-      const nextQuery = extractQueryFromPath(window.location.pathname, searchBasePath);
+      const nextQuery = extractQueryFromUrl(window.location, searchBasePath);
       setView('search');
       setSelectedDictCode(null);
       setSelectedDictName(null);
@@ -133,9 +144,10 @@ export default function App() {
   }, [searchBasePath]);
 
   useEffect(() => {
-    const nextPath = buildSearchPath(submittedQuery, searchBasePath);
-    if (window.location.pathname !== nextPath) {
-      window.history.pushState({}, '', nextPath);
+    const nextUrl = buildSearchUrl(submittedQuery, searchBasePath);
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    if (currentUrl !== nextUrl) {
+      window.history.pushState({}, '', nextUrl);
     }
   }, [submittedQuery, searchBasePath]);
 
@@ -203,7 +215,7 @@ export default function App() {
     setSubmittedQuery(queryText);
   };
 
-  const getSearchHref = (queryText: string) => buildSearchPath(queryText, searchBasePath);
+  const getSearchHref = (queryText: string) => buildSearchUrl(queryText, searchBasePath);
 
   const handleBackToDictionary = () => {
     setView('dictionaries');
