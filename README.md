@@ -1,8 +1,4 @@
-Search the terms of the Academy of the Hebrew Language.
-
-Based on: https://terms.hebrew-academy.org.il/
-
-I created this site because [the original site is currently down](https://www.ynet.co.il/news/article/sjb04v0f11e) (as of April 2026).
+I created this site because the original site (https://terms.hebrew-academy.org.il/) is currently [down](https://www.ynet.co.il/news/article/sjb04v0f11e) (as of April 2026).
 
 # Copyright
 
