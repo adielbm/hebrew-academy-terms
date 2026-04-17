@@ -263,13 +263,6 @@ export default function App() {
       <div className="app-header">
         <h1 className="hebrew-text">מונחי האקדמיה ללשון העברית</h1>
         <p className="hebrew-text">המילונים המקצועיים והמילים בשימוש כללי של ועד הלשון ושל האקדמיה ללשון העברית</p>
-        <p
-          style={{ fontWeight: 'bold', color: '#93271e' }}
-          className="hebrew-text"
-        >
-          כל הזכויות שמורות לאקדמיה ללשון העברית
-        </p>
-
       </div>
 
       <div className="view-tabs">
@@ -288,7 +281,7 @@ export default function App() {
           }}
           aria-selected={view === 'dictionaries' || view === 'dictionary'}
         >
-          עיין במילונים
+           מילונים
         </button>
       </div>
 
@@ -302,17 +295,17 @@ export default function App() {
 
           {submittedQuery.trim() && (
             <div className="results-container">
-              <div className="results-info">
-                נמצאו {searchResults.length} תוצאות
-              </div>
+              {(searchLoading || searchResults.length > 0) && (
+                <div className="results-info">
+                  {searchLoading ? 'מחפש...' : `נמצאו ${searchResults.length} תוצאות`}
+                </div>
+              )}
               {submittedQuery.trim().length < 2 ? (
                 <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>
                   יש להזין לפחות 2 תווים לחיפוש
                 </p>
               ) : searchLoading ? (
-                <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>
-                  מחפש...
-                </p>
+                <></>
               ) : searchResults.length > 0 ? (
                 <div className="results-list">
                   {searchResults.map((term, index) => (
@@ -333,6 +326,10 @@ export default function App() {
               )}
             </div>
           )}
+
+          <footer className="app-footer hebrew-text">
+            כל הזכויות שמורות לאקדמיה ללשון העברית
+          </footer>
         </div>
       )}
 

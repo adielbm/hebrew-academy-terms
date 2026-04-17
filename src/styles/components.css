@@ -16,6 +16,7 @@
   display: flex;
   gap: var(--spacing-sm);
   align-items: center;
+  justify-content: flex-end;
 }
 
 .spelling-toggle button {
@@ -44,7 +45,6 @@
 }
 
 .spelling-toggle-page {
-  position: absolute;
   top: var(--spacing-md);
   left: var(--spacing-md);
 }
@@ -98,6 +98,20 @@
 
 .result-hebrew {
   flex: 1;
+}
+
+.result-hebrew-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  margin-inline-end: auto;
+}
+
+.term-token {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
 }
 
 .term-link {
@@ -174,24 +188,13 @@
   color: var(--color-text-light);
 }
 
-.synonyms-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-sm);
-}
-
-.synonyms-label {
-  font-size: 0.82rem;
-  color: var(--color-text-light);
-  white-space: nowrap;
-  margin-top: 2px;
-}
-
-.synonyms-list {
-  display: flex;
+.synonyms-inline {
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-xs);
+  margin-inline-end: auto;
+  text-align: start;
+  direction: rtl;
 }
 
 .other-dicts {
@@ -396,6 +399,31 @@
     flex-direction: column;
   }
 
+  .result-english-inline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+    margin-inline-end: auto;
+  }
+
+  .result-english-inline .term-token {
+    display: inline-flex;
+    width: fit-content;
+  }
+
+  .synonyms-inline {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+    margin-inline-end: auto;
+  }
+
+  .synonyms-inline .term-token {
+    display: inline-flex;
+    width: fit-content;
+  }
+
   .dictionary-header {
     flex-direction: column;
     align-items: stretch;
@@ -535,4 +563,12 @@
   .modal-content {
     max-height: 90vh;
   }
+}
+
+.app-footer {
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-md);
+  color: var(--color-text-light);
+  font-size: 0.9rem;
+  text-align: center;
 }

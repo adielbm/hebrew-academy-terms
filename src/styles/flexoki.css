@@ -131,8 +131,8 @@
   /* Semantic app tokens (light mode by default) */
   --color-bg: var(--flexoki-paper);
   --color-text: var(--flexoki-black);
-  --color-text-light: var(--flexoki-700);
-  --color-border: var(--flexoki-200);
+  --color-text-light: var(--flexoki-600);
+  --color-border: var(--flexoki-400);
   --color-accent: var(--flexoki-blue-600);
   --color-accent-hover: var(--flexoki-blue-700);
   --color-bg-light: var(--flexoki-50);

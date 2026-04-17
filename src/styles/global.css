@@ -121,7 +121,7 @@ button:disabled {
 }
 
 button.secondary {
-  background-color: var(--color-bg-light);
+  background: none;
   color: var(--color-text);
   border: 1px solid var(--color-border);
 }

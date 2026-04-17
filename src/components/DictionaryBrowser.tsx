@@ -84,16 +84,13 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
           <h2 className="hebrew-text" style={{ margin: 0 }}>
             {dictionaryName}
           </h2>
-          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--color-text-light)' }}>
-            חיפוש מונחים בתוך המילון
-          </p>
         </div>
       </div>
 
       <div className="dictionary-search">
         <input
           type="search"
-          placeholder="חפש בתוך המילון..."
+          placeholder="חיפוש בתוך המילון..."
           value={draftQuery}
           onChange={(e) => {
             setDraftQuery(e.target.value);
@@ -109,13 +106,9 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
 
       <div className="results-container">
         {!submittedQuery ? (
-          <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>
-            הקלידו מונח ולחצו Enter
-          </p>
+          <></>
         ) : loading ? (
-          <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>
-            מחפש...
-          </p>
+          <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>מחפש...</p>
         ) : error ? (
           <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>
             {error}

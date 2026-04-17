@@ -15,7 +15,7 @@ export const SearchBar: FC<SearchBarProps> = ({
     <div className="search-bar">
       <input
         type="search"
-        placeholder="חפש מונח..."
+        placeholder="חפשו מונח..."
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
         onKeyDown={(e) => {

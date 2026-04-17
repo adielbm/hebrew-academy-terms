@@ -75,36 +75,67 @@ export const TermItem: FC<TermItemProps> = ({
     onSearchText(query);
   };
 
+  const renderCommaSeparatedLinks = (
+    items: Array<{
+      text: string;
+      href: string;
+      ariaLabel: string;
+      onClick: (event: MouseEvent<HTMLAnchorElement>) => void;
+    }>
+  ) =>
+    items.map((item, index) => (
+      <span className="term-token" key={`${item.text}-${index}`}>
+        <a
+          className="term-link hebrew-text"
+          href={item.href}
+          onClick={item.onClick}
+          aria-label={item.ariaLabel}
+        >
+          {item.text}
+        </a>
+        {index < items.length - 1 && <span aria-hidden="true">, </span>}
+      </span>
+    ));
+
   return (
     <div className={`result-item ${term.is_obsolete ? 'obsolete' : ''}`}>
       <div className="result-header">
-        <div className="result-hebrew">
-          <a
-            className="term-link hebrew-text"
-            href={getSearchHref(hebrew)}
-            onClick={(event) => {
-              if (
-                event.button !== 0 ||
-                event.metaKey ||
-                event.altKey ||
-                event.ctrlKey ||
-                event.shiftKey
-              ) {
-                return;
-              }
+        <div className="result-hebrew result-hebrew-inline">
+          <span className="synonyms-inline hebrew-text">
+            {renderCommaSeparatedLinks([
+              {
+                text: hebrew,
+                href: getSearchHref(hebrew),
+                ariaLabel: `חפש את המונח ${hebrew} בכל המילונים`,
+                onClick: (event) => {
+                  if (
+                    event.button !== 0 ||
+                    event.metaKey ||
+                    event.altKey ||
+                    event.ctrlKey ||
+                    event.shiftKey
+                  ) {
+                    return;
+                  }
 
-              event.preventDefault();
-              onTermClick(term);
-            }}
-            aria-label={`חפש את המונח ${hebrew} בכל המילונים`}
-          >
-            {hebrew}
-          </a>
+                  event.preventDefault();
+                  onTermClick(term);
+                },
+              },
+              ...uniqueSynonyms.map((synonym) => ({
+                text: synonym,
+                href: getSearchHref(synonym),
+                ariaLabel: `חפש את הנרדפת ${synonym}`,
+                onClick: (event: MouseEvent<HTMLAnchorElement>) =>
+                  handleSearchLinkClick(event, synonym),
+              })),
+            ])}
+          </span>
         </div>
         {term.english_translations.length > 0 && (
           <div className="result-english-inline english-text">
             {term.english_translations.map((eng, index) => (
-              <span key={`${eng}-${index}`}>
+              <span className="term-token english-token" key={`${eng}-${index}`}>
                 <a
                   className="term-link english-text"
                   href={getSearchHref(eng)}
@@ -128,33 +159,8 @@ export const TermItem: FC<TermItemProps> = ({
         </div>
       )}
 
-      {uniqueSynonyms.length > 0 && (
-        <div className="synonyms-row">
-          <span className="synonyms-label">נרדפות:</span>
-          <div className="synonyms-list">
-            {uniqueSynonyms.map((synonym, index) => (
-              <span key={`${synonym}-${index}`}>
-                <a
-                  className="term-link hebrew-text"
-                  href={getSearchHref(synonym)}
-                  onClick={(event) => handleSearchLinkClick(event, synonym)}
-                  aria-label={`חפש את הנרדפת ${synonym}`}
-                >
-                  {synonym}
-                </a>
-                {index < uniqueSynonyms.length - 1 && (
-                  <span aria-hidden="true">, </span>
-                )}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="result-footer">
-        {term.is_obsolete && (
-          <span className="result-badge">מיושן</span>
-        )}
+        {term.is_obsolete && <span className="result-badge">מיושן</span>}
         <span className="result-badge dictionary">{term.dictionary_name}</span>
       </div>
     </div>
