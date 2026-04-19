@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { forwardRef } from 'react';
 
 interface SearchBarProps {
   query: string;
@@ -6,25 +6,26 @@ interface SearchBarProps {
   onSearch: () => void;
 }
 
-export const SearchBar: FC<SearchBarProps> = ({
-  query,
-  onQueryChange,
-  onSearch,
-}) => {
-  return (
-    <div className="search-bar">
-      <input
-        type="search"
-        placeholder="חפשו מונח..."
-        value={query}
-        onChange={(e) => onQueryChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            onSearch();
-          }
-        }}
-        aria-label="חיפוש מונח"
-      />
-    </div>
-  );
-};
+export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
+  ({ query, onQueryChange, onSearch }, ref) => {
+    return (
+      <div className="search-bar">
+        <input
+          ref={ref}
+          type="search"
+          placeholder="חפשו מונח..."
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              onSearch();
+            }
+          }}
+          aria-label="חיפוש מונח"
+        />
+      </div>
+    );
+  }
+);
+
+SearchBar.displayName = 'SearchBar';

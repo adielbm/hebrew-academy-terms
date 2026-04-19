@@ -1,12 +1,10 @@
-Search the terms of the Academy of the Hebrew Language.
+the original site (https://terms.hebrew-academy.org.il/) is currently [down](https://www.ynet.co.il/news/article/sjb04v0f11e) (as of April 2026)
 
-Based on: https://terms.hebrew-academy.org.il/
+# setup
 
-I created this site because [the original site is currently down](https://www.ynet.co.il/news/article/sjb04v0f11e) (as of April 2026).
+1. first have the the source HTML files from Web Archive to `source-html` directory
+    - https://web.archive.org/web/20250627114638/https://terms.hebrew-academy.org.il/Millonim.aspx 
+2. run `html-to-json-converter.mjs` to convert the source HTML files to a JSON file (`public/data.json`). (it might need some modification to work)
+3. `npm i`
+4. `npm run dev` or `npm run build`
 
-# Copyright
-
-**© The Academy of the Hebrew Language. All rights reserved.**
-
-You may not copy, modify, distribute, publish, or create derivative works from
-the data without explicit prior written permission from the rights holder.

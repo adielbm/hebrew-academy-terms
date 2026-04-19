@@ -1,0 +1,161 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "array",
+    "items": {
+        "$ref": "#/definitions/SchemaElement"
+    },
+    "definitions": {
+        "SchemaElement": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "dictionary_name": {
+                    "type": "string"
+                },
+                "dictionary_code": {
+                    "type": "string",
+                    "format": "integer"
+                },
+                "terms_count": {
+                    "type": "integer"
+                },
+                "terms": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/SchemaTerm"
+                    }
+                }
+            },
+            "required": [
+                "dictionary_code",
+                "dictionary_name",
+                "terms",
+                "terms_count"
+            ],
+            "title": "SchemaElement"
+        },
+        "SchemaTerm": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "format": "integer"
+                },
+                "he": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/He"
+                    }
+                },
+                "en": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/En"
+                    }
+                },
+                "subject": {
+                    "type": "string"
+                },
+                "remarks": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mesumman": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Mesumman"
+                    }
+                },
+                "la": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/En"
+                    }
+                }
+            },
+            "required": [
+                "id",
+                "subject"
+            ],
+            "title": "SchemaTerm"
+        },
+        "En": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "term": {
+                    "type": "string"
+                },
+                "def": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "term"
+            ],
+            "title": "En"
+        },
+        "He": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "terms": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/HeTerm"
+                    }
+                },
+                "def": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "terms"
+            ],
+            "title": "He"
+        },
+        "HeTerm": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "haser": {
+                    "type": "string"
+                },
+                "male": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "haser",
+                "male"
+            ],
+            "title": "HeTerm"
+        },
+        "Mesumman": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "kod": {
+                    "type": "string",
+                    "format": "integer"
+                },
+                "additional_terms": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "kod"
+            ],
+            "title": "Mesumman"
+        }
+    }
+}

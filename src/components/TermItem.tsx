@@ -16,16 +16,11 @@ export const TermItem: FC<TermItemProps> = ({
   onSearchText,
   getSearchHref,
 }) => {
-  const hebrew = useVowels ? term.hebrew_with_vowels : term.hebrew_without_vowels;
-  const uniqueSynonyms = Array.from(
-    new Set(
-      term.synonyms
-        .map((synonym) =>
-          useVowels ? synonym.hebrew_with_vowels : synonym.hebrew_without_vowels
-        )
-        .filter((value) => value.trim().length > 0)
-    )
-  );
+  const hebrew = useVowels ? term.haser : term.male;
+  const hebrewVariants = term.raw.he ?? [];
+  const englishEntries = term.raw.en ?? [];
+  const latinEntries = term.raw.la ?? [];
+  const hasRemarks = Boolean(term.remarks && term.remarks.length > 0);
 
   const renderDefinition = () => {
     const trimmed = term.definition.trim();
@@ -80,88 +75,231 @@ export const TermItem: FC<TermItemProps> = ({
       text: string;
       href: string;
       ariaLabel: string;
+      className?: string;
       onClick: (event: MouseEvent<HTMLAnchorElement>) => void;
-    }>
+    }>,
+    separator = ', '
   ) =>
     items.map((item, index) => (
       <span className="term-token" key={`${item.text}-${index}`}>
         <a
-          className="term-link hebrew-text"
+          className={`term-link ${item.className ?? ''}`.trim()}
           href={item.href}
           onClick={item.onClick}
           aria-label={item.ariaLabel}
         >
           {item.text}
         </a>
-        {index < items.length - 1 && <span aria-hidden="true">, </span>}
+        {index < items.length - 1 && (
+          <span className="term-separator" aria-hidden="true">{separator}</span>
+        )}
       </span>
     ));
 
+  const renderCommaSeparatedText = (items: string[], className?: string) => (
+    <span className={className}>
+      {items.map((item, index) => (
+        <span className="term-token" key={`${item}-${index}`}>
+          <span>{item}</span>
+          {index < items.length - 1 && <span aria-hidden="true">, </span>}
+        </span>
+      ))}
+    </span>
+  );
+
+  const collectSources = (sources: Array<string | undefined>): string[] =>
+    Array.from(
+      new Set(
+        sources
+          .map((source) => source?.trim())
+          .filter((source): source is string => Boolean(source))
+      )
+    );
+
+  const renderSource = (sources: string[]) => {
+    if (sources.length === 0) {
+      return null;
+    }
+
+    return (
+      <span className="term-row-source">
+        <span className="term-row-source-paren" aria-hidden="true">(</span>
+        <span className="term-row-source-label">במקור </span>
+        {sources.map((source, index) => (
+          <span className="term-token" key={`${source}-${index}`}>
+            <a
+              className="term-row-source-link"
+              href={getSearchHref(source)}
+              onClick={(event) => handleSearchLinkClick(event, source)}
+              aria-label={`חפש את המקור ${source}`}
+            >
+              {source}
+            </a>
+            {index < sources.length - 1 && <span aria-hidden="true">, </span>}
+          </span>
+        ))}
+        <span className="term-row-source-paren" aria-hidden="true">)</span>
+      </span>
+    );
+  };
+
   return (
     <div className={`result-item ${term.is_obsolete ? 'obsolete' : ''}`}>
-      <div className="result-header">
-        <div className="result-hebrew result-hebrew-inline">
-          <span className="synonyms-inline hebrew-text">
-            {renderCommaSeparatedLinks([
-              {
-                text: hebrew,
-                href: getSearchHref(hebrew),
-                ariaLabel: `חפש את המונח ${hebrew} בכל המילונים`,
-                onClick: (event) => {
-                  if (
-                    event.button !== 0 ||
-                    event.metaKey ||
-                    event.altKey ||
-                    event.ctrlKey ||
-                    event.shiftKey
-                  ) {
-                    return;
-                  }
+      {hebrewVariants.length > 0 && (
+        <div className="term-rows term-rows-hebrew">
+          {hebrewVariants.map((variant, variantIndex) => {
+            const termRows = Array.from(
+              new Map(
+                variant.terms
+                  .map((variantTerm) => {
+                    const text = useVowels ? variantTerm.haser : variantTerm.male;
+                    const source = variantTerm.source?.trim();
 
-                  event.preventDefault();
-                  onTermClick(term);
-                },
-              },
-              ...uniqueSynonyms.map((synonym) => ({
-                text: synonym,
-                href: getSearchHref(synonym),
-                ariaLabel: `חפש את הנרדפת ${synonym}`,
-                onClick: (event: MouseEvent<HTMLAnchorElement>) =>
-                  handleSearchLinkClick(event, synonym),
-              })),
-            ])}
-          </span>
+                    return {
+                      text: text.trim(),
+                      source: source && source.length > 0 ? source : undefined,
+                    };
+                  })
+                  .filter((row) => row.text.length > 0)
+                  .map((row) => [`${row.text}|||${row.source ?? ''}`, row])
+              ).values()
+            );
+
+            if (termRows.length === 0) {
+              return null;
+            }
+
+            return (
+              <div key={`he-${variantIndex}`}>
+                {termRows.map((row, rowIndex) => (
+                  <div className="term-row" key={`he-${variantIndex}-${row.text}-${row.source ?? rowIndex}`}>
+                    <span className="term-row-main hebrew-text">
+                      <a
+                        className="term-link hebrew-text"
+                        href={getSearchHref(row.text)}
+                        aria-label={`חפש את המונח ${row.text}`}
+                        onClick={(event) => {
+                          if (row.text === hebrew) {
+                            if (
+                              event.button !== 0 ||
+                              event.metaKey ||
+                              event.altKey ||
+                              event.ctrlKey ||
+                              event.shiftKey
+                            ) {
+                              return;
+                            }
+
+                            event.preventDefault();
+                            onTermClick(term);
+                            return;
+                          }
+
+                          handleSearchLinkClick(event, row.text);
+                        }}
+                      >
+                        {row.text}
+                      </a>
+                    </span>
+                    {rowIndex === 0 && variant.def && (
+                      <div className="term-row-def hebrew-definition">{variant.def}</div>
+                    )}
+                    {renderSource(row.source ? [row.source] : [])}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
-        {term.english_translations.length > 0 && (
-          <div className="result-english-inline english-text">
-            {term.english_translations.map((eng, index) => (
-              <span className="term-token english-token" key={`${eng}-${index}`}>
-                <a
-                  className="term-link english-text"
-                  href={getSearchHref(eng)}
-                  onClick={(event) => handleSearchLinkClick(event, eng)}
-                  aria-label={`חפש את המונח באנגלית ${eng}`}
-                >
-                  {eng}
-                </a>
-                {index < term.english_translations.length - 1 && (
-                  <span aria-hidden="true">, </span>
-                )}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
 
-      {term.definition && (
+      {englishEntries.length > 0 && (
+        <div className="term-rows term-rows-english">
+          {englishEntries
+            .filter((entry) => entry.term.trim().length > 0)
+            .map((entry, index) => (
+              <div className="term-row term-row-ltr" key={`en-${entry.term}-${index}`}>
+                <div className="term-row-main english-text">
+                  <a
+                    className="term-link english-text"
+                    href={getSearchHref(entry.term)}
+                    onClick={(event) => handleSearchLinkClick(event, entry.term)}
+                    aria-label={`חפש את המונח באנגלית ${entry.term}`}
+                  >
+                    {entry.term}
+                  </a>
+                </div>
+                {entry.def && <div className="term-row-def">{entry.def}</div>}
+                {renderSource(collectSources([entry.source]))}
+              </div>
+            ))}
+        </div>
+      )}
+
+      {term.definition && !hebrewVariants.some((variant) => Boolean(variant.def?.trim())) && (
         <div className="result-definition hebrew-definition">
           {renderDefinition()}
         </div>
       )}
 
+      {latinEntries.length > 0 && (
+        <div className="term-rows term-rows-latin">
+          {latinEntries
+            .filter((entry) => entry.term.trim().length > 0)
+            .map((entry, index) => (
+              <div className="term-row term-row-ltr" key={`la-${entry.term}-${index}`}>
+                <div className="term-row-main latin-text">
+                  <a
+                    className="term-link latin-text"
+                    href={getSearchHref(entry.term)}
+                    onClick={(event) => handleSearchLinkClick(event, entry.term)}
+                    aria-label={`חפש את המונח בלטינית ${entry.term}`}
+                  >
+                    {entry.term}
+                  </a>
+                </div>
+                {entry.def && <div className="term-row-def">{entry.def}</div>}
+                {renderSource(collectSources([entry.source]))}
+              </div>
+            ))}
+        </div>
+      )}
+
+      {latinEntries.length === 0 && (term.la ?? []).length > 0 && (
+        <div className="term-meta-grid">
+          <div className="term-meta-row">
+            <span className="term-meta-label">לטינית</span>
+            <span className="term-meta-value latin-text">
+              {renderCommaSeparatedLinks(
+                (term.la ?? []).map((latin) => ({
+                  text: latin,
+                  href: getSearchHref(latin),
+                  ariaLabel: `חפש את המונח בלטינית ${latin}`,
+                  className: 'latin-text',
+                  onClick: (event: MouseEvent<HTMLAnchorElement>) =>
+                    handleSearchLinkClick(event, latin),
+                }))
+              )}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {hasRemarks && (
+        <div className="term-meta-grid">
+          <div className="term-meta-row term-meta-row-no-label">
+            <span className="term-meta-value">{renderCommaSeparatedText(term.remarks ?? [], 'remark-list')}</span>
+          </div>
+        </div>
+      )}
+
       <div className="result-footer">
-        {term.is_obsolete && <span className="result-badge">מיושן</span>}
-        <span className="result-badge dictionary">{term.dictionary_name}</span>
+        {term.is_obsolete && <span>מיושן</span>}
+        {term.dictionary_year && (
+          <span>{term.dictionary_year}</span>
+        )}
+        <span className="dictionary-name">{term.dictionary_name}, </span>
+        {term.subject && <span className="dictionary-subject">{term.subject} </span>}
       </div>
     </div>
   );

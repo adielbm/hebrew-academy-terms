@@ -1,85 +1,174 @@
-import { useState, useEffect, FC } from 'react';
-import { IndexedTerm } from '../types';
+import { FC, MouseEvent, useEffect, useMemo, useState } from 'react';
+import type { IndexedTerm } from '../types';
 import { TermItem } from './TermItem';
-import { searchTerms } from '../services/dataService';
+import {
+  getDictionarySubjects,
+  getDictionaryTermsBySubject,
+  subscribeIndexUpdates,
+} from '../services/dataService';
+
+const SUBJECT_TERM_CHUNK_THRESHOLD = 200;
 
 interface DictionaryBrowserProps {
   dictionaryName: string;
   dictionaryCode: string;
   useVowels: boolean;
+  selectedSubject: string | null;
+  selectedBucket: string | null;
+  onSelectSubject: (subject: string | null) => void;
+  onSelectBucket: (bucket: string | null) => void;
+  getSubjectHref: (subject: string) => string;
+  getBucketHref: (bucket: string) => string;
   onTermClick: (term: IndexedTerm) => void;
   onSearchText: (query: string) => void;
   getSearchHref: (query: string) => string;
-  onBack: () => void;
+}
+
+function getLeadingBucket(term: IndexedTerm): string {
+  const value = term.male.trim();
+  if (!value) {
+    return '#';
+  }
+
+  return value[0];
+}
+
+function getBuckets(terms: IndexedTerm[]): string[] {
+  return Array.from(new Set(terms.map((term) => getLeadingBucket(term)))).sort((left, right) =>
+    left.localeCompare(right, 'he')
+  );
 }
 
 export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
   dictionaryName,
   dictionaryCode,
   useVowels,
+  selectedSubject,
+  selectedBucket,
+  onSelectSubject,
+  onSelectBucket,
+  getSubjectHref,
+  getBucketHref,
   onTermClick,
   onSearchText,
   getSearchHref,
-  onBack,
 }) => {
-  const [draftQuery, setDraftQuery] = useState('');
-  const [submittedQuery, setSubmittedQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [results, setResults] = useState<IndexedTerm[]>([]);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [subjectTerms, setSubjectTerms] = useState<IndexedTerm[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
-    if (!submittedQuery.trim()) {
-      setResults([]);
-      setError(null);
-      return;
-    }
-
-    if (submittedQuery.trim().length < 2) {
-      setResults([]);
-      setError('יש להזין לפחות 2 תווים לחיפוש.');
-      return;
-    }
-
-    const loadResults = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const nextResults = await searchTerms(submittedQuery, dictionaryCode);
-        if (!cancelled) {
-          setResults(nextResults);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setResults([]);
-          setError('אירעה שגיאה בחיפוש במילון.');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+    const loadSubjects = async () => {
+      const nextSubjects = await getDictionarySubjects(dictionaryCode);
+      if (!cancelled) {
+        setSubjects(nextSubjects);
       }
     };
 
-    loadResults();
+    void loadSubjects();
+
+    const unsubscribe = subscribeIndexUpdates(() => {
+      void loadSubjects();
+      if (selectedSubject) {
+        void getDictionaryTermsBySubject(dictionaryCode, selectedSubject).then((terms) => {
+          if (!cancelled) {
+            setSubjectTerms(terms);
+          }
+        });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [dictionaryCode, selectedSubject]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!selectedSubject) {
+      setSubjectTerms([]);
+      return;
+    }
+
+    void getDictionaryTermsBySubject(dictionaryCode, selectedSubject).then((terms) => {
+      if (!cancelled) {
+        setSubjectTerms(terms);
+      }
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [submittedQuery, dictionaryCode]);
+  }, [dictionaryCode, selectedSubject]);
 
-  const handleSearch = () => {
-    setSubmittedQuery(draftQuery.trim());
+  const buckets = useMemo(() => getBuckets(subjectTerms), [subjectTerms]);
+
+  useEffect(() => {
+    if (subjectTerms.length <= SUBJECT_TERM_CHUNK_THRESHOLD) {
+      if (selectedBucket !== null) {
+        onSelectBucket(null);
+      }
+      return;
+    }
+
+    if (selectedBucket && buckets.includes(selectedBucket)) {
+      return;
+    }
+
+    onSelectBucket(buckets[0] ?? null);
+  }, [buckets, onSelectBucket, selectedBucket, subjectTerms.length]);
+
+  const displayedTerms = useMemo(() => {
+    if (subjectTerms.length <= SUBJECT_TERM_CHUNK_THRESHOLD || !selectedBucket) {
+      return subjectTerms;
+    }
+
+    return subjectTerms.filter((term) => getLeadingBucket(term) === selectedBucket);
+  }, [selectedBucket, subjectTerms]);
+
+  const handleSubjectLinkClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    subject: string
+  ) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    onSelectSubject(subject);
+    onSelectBucket(null);
+  };
+
+  const handleBucketLinkClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    bucket: string
+  ) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    onSelectBucket(bucket);
   };
 
   return (
     <div className="dictionary-browser">
       <div className="dictionary-header">
-        <button onClick={onBack} className="secondary">
-          חזור
-        </button>
         <div>
           <h2 className="hebrew-text" style={{ margin: 0 }}>
             {dictionaryName}
@@ -87,41 +176,61 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
         </div>
       </div>
 
-      <div className="dictionary-search">
-        <input
-          type="search"
-          placeholder="חיפוש בתוך המילון..."
-          value={draftQuery}
-          onChange={(e) => {
-            setDraftQuery(e.target.value);
-          }}
-          aria-label="חיפוש בתוך המילון"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              handleSearch();
-            }
-          }}
-        />
-      </div>
+      {!selectedSubject ? (
+        <div className="subjects-list" role="list">
+          {subjects.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>
+              אין נושאים זמינים עדיין.
+            </p>
+          ) : (
+            subjects.map((subject) => (
+              <a
+                key={subject}
+                className="subject-card"
+                href={getSubjectHref(subject)}
+                onClick={(event) => handleSubjectLinkClick(event, subject)}
+              >
+                {subject}
+              </a>
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="results-container">
+          <div className="dictionary-header subject-header">
+            <h3 className="hebrew-text" style={{ margin: 0 }}>
+              {selectedSubject}
+            </h3>
+          </div>
 
-      <div className="results-container">
-        {!submittedQuery ? (
-          <></>
-        ) : loading ? (
-          <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>מחפש...</p>
-        ) : error ? (
-          <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>
-            {error}
-          </p>
-        ) : results.length > 0 ? (
-          <>
-            <div className="results-info">
-              נמצאו {results.length} תוצאות
+          {subjectTerms.length > SUBJECT_TERM_CHUNK_THRESHOLD && (
+            <div className="subject-buckets" role="tablist" aria-label="חלוקה לפי אות">
+              {buckets.map((bucket) => (
+                <a
+                  key={bucket}
+                  className={`subject-bucket ${selectedBucket === bucket ? 'active' : ''}`}
+                  href={getBucketHref(bucket)}
+                  onClick={(event) => handleBucketLinkClick(event, bucket)}
+                  aria-selected={selectedBucket === bucket}
+                >
+                  {bucket}
+                </a>
+              ))}
             </div>
+          )}
+
+          <div className="results-info">
+            נמצאו {subjectTerms.length} מונחים
+            {subjectTerms.length > SUBJECT_TERM_CHUNK_THRESHOLD && selectedBucket
+              ? ` · מציג אות ${selectedBucket} (${displayedTerms.length})`
+              : ''}
+          </div>
+
+          {displayedTerms.length > 0 ? (
             <div className="results-list">
-              {results.map((term, index) => (
+              {displayedTerms.map((term) => (
                 <TermItem
-                  key={`${term.dictionary_code}-${term.id}-${term.hebrew_without_vowels}-${index}`}
+                  key={`${term.dictionary_code}-${term.id}-${term.male}`}
                   term={term}
                   useVowels={useVowels}
                   onTermClick={onTermClick}
@@ -130,13 +239,13 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
                 />
               ))}
             </div>
-          </>
-        ) : (
-          <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>
-            לא נמצאו מונחים
-          </p>
-        )}
-      </div>
+          ) : (
+            <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>
+              אין מונחים להצגה עבור הבחירה הנוכחית
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

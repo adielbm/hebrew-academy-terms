@@ -14,7 +14,7 @@ export const OtherDictionaries: FC<OtherDictionariesProps> = ({
   onClose,
   useVowels,
 }) => {
-  const hebrew = useVowels ? term.hebrew_with_vowels : term.hebrew_without_vowels;
+  const hebrew = useVowels ? term.haser : term.male;
 
   if (otherDictionaries.size === 0) {
     return (
@@ -52,15 +52,15 @@ export const OtherDictionaries: FC<OtherDictionariesProps> = ({
                 </h3>
                 <div className="other-dict-terms">
                   {terms.map((t, index) => (
-                    <div key={`${t.dictionary_code}-${t.id}-${t.hebrew_without_vowels}-${index}`} className="other-dict-term">
+                    <div key={`${t.dictionary_code}-${t.id}-${t.male}-${index}`} className="other-dict-term">
                       <div className="hebrew-text">
                         {useVowels
-                          ? t.hebrew_with_vowels
-                          : t.hebrew_without_vowels}
+                          ? t.haser
+                          : t.male}
                       </div>
-                      {t.english_translations.length > 0 && (
+                      {t.en.length > 0 && (
                         <div className="english-text">
-                          {t.english_translations.join(', ')}
+                          {t.en.join(', ')}
                         </div>
                       )}
                       {t.definition && (

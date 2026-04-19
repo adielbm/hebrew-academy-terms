@@ -7,7 +7,8 @@
 :root {
   --font-hebrew: 'Alef', sans-serif;
   --font-english: 'Alef', sans-serif;
-  --font-ui: 'Google Sans', sans-serif;
+  --font-latin: 'Lora', serif;
+  --font-ui: 'Miriam Libre', sans-serif;
 
   --spacing-xs: 0.25rem;
   --spacing-sm: 0.5rem;
@@ -23,7 +24,6 @@
 }
 
 html {
-  font-size: 16px;
 }
 
 body {
@@ -44,19 +44,16 @@ textarea {
 
 /* Typography */
 h1 {
-  font-size: 1.5rem;
   font-weight: 700;
   margin-bottom: var(--spacing-md);
 }
 
 h2 {
-  font-size: 1.25rem;
   font-weight: 700;
   margin-bottom: var(--spacing-md);
 }
 
 h3 {
-  font-size: 1.1rem;
   font-weight: 700;
   margin-bottom: var(--spacing-sm);
 }
@@ -68,19 +65,16 @@ p {
 /* Hebrew text */
 .hebrew-text {
   font-family: var(--font-hebrew);
-  font-size: 1.05rem;
 }
 
 .hebrew-definition {
   font-family: var(--font-hebrew);
   font-weight: 400;
-  font-size: 0.95rem;
   line-height: 1.6;
 }
 
 .english-text {
   font-family: var(--font-english);
-  font-size: 0.95rem;
 }
 
 /* Links and buttons */
@@ -99,7 +93,6 @@ button {
   border: none;
   padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--radius-md);
-  font-size: 0.95rem;
   font-weight: 500;
   transition: none;
   background-color: var(--color-text);
@@ -145,7 +138,6 @@ select {
   padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  font-size: 0.95rem;
   background-color: var(--color-bg);
   color: var(--color-text);
   transition: none;
