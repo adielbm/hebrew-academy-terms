@@ -8,3 +8,4 @@ the original site (https://terms.hebrew-academy.org.il/) is currently [down](htt
 3. `npm i`
 4. `npm run dev` or `npm run build`
 
+
