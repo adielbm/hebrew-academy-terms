@@ -35,11 +35,36 @@ type ParserWorkerMessage =
   | { type: 'done' }
   | { type: 'error'; message: string };
 
-const DATA_FILE_URL = `${import.meta.env.BASE_URL}data.json`;
+const DEFAULT_DATA_FILE_URL = `${import.meta.env.BASE_URL}data.json`;
 const SEARCH_LIMIT = 200;
 const LOAD_COMPLETE_META_KEY = 'loadComplete';
 const SEARCH_INDEX_VERSION_META_KEY = 'searchIndexVersion';
 const SEARCH_INDEX_VERSION = '2';
+
+const DATA_FILE_UNAVAILABLE_ERROR_CODE = 'DATA_FILE_UNAVAILABLE';
+
+export class DataFileUnavailableError extends Error {
+  readonly code = DATA_FILE_UNAVAILABLE_ERROR_CODE;
+
+  constructor(message = 'data.json is unavailable') {
+    super(message);
+    this.name = 'DataFileUnavailableError';
+  }
+}
+
+export function isDataFileUnavailableError(error: unknown): error is DataFileUnavailableError {
+  return (
+    error instanceof DataFileUnavailableError ||
+    (typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: string }).code === DATA_FILE_UNAVAILABLE_ERROR_CODE)
+  );
+}
+
+export function getDefaultDataFileUrl(): string {
+  return DEFAULT_DATA_FILE_URL;
+}
 
 let loadPromise: Promise<void> | null = null;
 let dictionaryMetadata: DictionaryMetadata[] = [];
@@ -363,6 +388,20 @@ async function processCollectionFallback(collection: DictionaryCollection): Prom
   }
 }
 
+async function processUploadedCollection(collection: unknown): Promise<void> {
+  if (!Array.isArray(collection)) {
+    throw new Error('קובץ הנתונים אינו מערך JSON תקין');
+  }
+
+  for (const item of collection) {
+    if (!isDictionaryEntry(item)) {
+      throw new Error('קובץ הנתונים אינו תואם למבנה המצופה');
+    }
+
+    await persistDictionary(item);
+  }
+}
+
 async function processWithWorker(response: Response): Promise<void> {
   if (!response.body) {
     const collection = (await response.json()) as DictionaryCollection;
@@ -440,7 +479,7 @@ async function processWithWorker(response: Response): Promise<void> {
   }
 }
 
-async function loadDictionaries(options: LoadOptions = {}): Promise<void> {
+async function loadDictionariesFromUrl(url: string, options: LoadOptions = {}): Promise<void> {
   if (options.onProgress) {
     progressListeners.add(options.onProgress);
     if (currentLoadProgress) {
@@ -460,13 +499,17 @@ async function loadDictionaries(options: LoadOptions = {}): Promise<void> {
     loadedBytes = 0;
     totalBytes = null;
 
-    await clearPersistence();
-
-    const response = await fetch(DATA_FILE_URL);
+    const response = await fetch(url);
     if (!response.ok) {
+      if (response.status === 404) {
+        throw new DataFileUnavailableError('קובץ הנתונים לא נמצא בכתובת שנבחרה');
+      }
+
       const body = await response.text();
       throw new Error(body || `HTTP ${response.status}`);
     }
+
+    await clearPersistence();
 
     const totalBytesHeader = response.headers.get('content-length');
     totalBytes = totalBytesHeader ? Number(totalBytesHeader) : null;
@@ -480,6 +523,112 @@ async function loadDictionaries(options: LoadOptions = {}): Promise<void> {
       await db.meta.put({ key: SEARCH_INDEX_VERSION_META_KEY, value: SEARCH_INDEX_VERSION });
     });
     emitLoadProgress(createLoadProgress(true));
+  } finally {
+    if (options.onProgress) {
+      progressListeners.delete(options.onProgress);
+    }
+  }
+}
+
+async function loadDictionaries(options: LoadOptions = {}): Promise<void> {
+  return loadDictionariesFromUrl(DEFAULT_DATA_FILE_URL, options);
+}
+
+export async function loadAndIndexDictionariesFromFile(
+  file: File,
+  options: LoadOptions = {}
+): Promise<void> {
+  if (options.onProgress) {
+    progressListeners.add(options.onProgress);
+    if (currentLoadProgress) {
+      options.onProgress(currentLoadProgress);
+    }
+  }
+
+  try {
+    allTerms = [];
+    dictionaryMetadata = [];
+    isLoaded = false;
+    parsedElements = 0;
+    loadedBytes = 0;
+    totalBytes = file.size || null;
+
+    await clearPersistence();
+    emitLoadProgress(createLoadProgress(false));
+
+    const response = new Response(file);
+
+    if (response.body) {
+      await processWithWorker(response);
+    } else {
+      const text = await file.text();
+      const collection = JSON.parse(text) as unknown;
+      await processUploadedCollection(collection);
+      loadedBytes = file.size;
+    }
+
+    isLoaded = true;
+    loadedBytes = file.size;
+    await db.transaction('rw', db.meta, async () => {
+      await db.meta.put({ key: LOAD_COMPLETE_META_KEY, value: 'true' });
+      await db.meta.put({ key: SEARCH_INDEX_VERSION_META_KEY, value: SEARCH_INDEX_VERSION });
+    });
+    emitLoadProgress(createLoadProgress(true));
+  } finally {
+    if (options.onProgress) {
+      progressListeners.delete(options.onProgress);
+    }
+  }
+}
+
+export async function hydrateDataFromPersistence(options: LoadOptions = {}): Promise<boolean> {
+  if (options.onProgress) {
+    progressListeners.add(options.onProgress);
+    if (currentLoadProgress) {
+      options.onProgress(currentLoadProgress);
+    }
+  }
+
+  try {
+    if (isLoaded) {
+      if (currentLoadProgress && options.onProgress) {
+        options.onProgress(currentLoadProgress);
+      }
+
+      return true;
+    }
+
+    return hydrateFromPersistence();
+  } finally {
+    if (options.onProgress) {
+      progressListeners.delete(options.onProgress);
+    }
+  }
+}
+
+export async function loadAndIndexDictionariesFromUrl(
+  url: string,
+  options: LoadOptions = {}
+): Promise<void> {
+  if (options.onProgress) {
+    progressListeners.add(options.onProgress);
+    if (currentLoadProgress) {
+      options.onProgress(currentLoadProgress);
+    }
+  }
+
+  if (!loadPromise) {
+    const activePromise = loadDictionariesFromUrl(url, {}).finally(() => {
+      if (loadPromise === activePromise) {
+        loadPromise = null;
+      }
+    });
+
+    loadPromise = activePromise;
+  }
+
+  try {
+    await loadPromise;
   } finally {
     if (options.onProgress) {
       progressListeners.delete(options.onProgress);
@@ -508,10 +657,13 @@ export async function loadAndIndexDictionaries(options: LoadOptions = {}): Promi
   }
 
   if (!loadPromise) {
-    loadPromise = loadDictionaries().catch((error) => {
-      loadPromise = null;
-      throw error;
+    const activePromise = loadDictionaries().finally(() => {
+      if (loadPromise === activePromise) {
+        loadPromise = null;
+      }
     });
+
+    loadPromise = activePromise;
   }
 
   try {

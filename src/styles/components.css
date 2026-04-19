@@ -701,6 +701,90 @@
   justify-items: start;
 }
 
+.status-state {
+  background-color: var(--color-bg-light);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.preferences-panel {
+  display: grid;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg);
+}
+
+.preferences-panel h2 {
+  margin-bottom: 0;
+}
+
+.preferences-panel p {
+  margin-bottom: 0;
+}
+
+.preferences-options {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.preferences-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.preferences-field {
+  display: grid;
+  gap: var(--spacing-xs);
+}
+
+.preferences-hint {
+  color: var(--color-text-light);
+  direction: ltr;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.preferences-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.preferences-local-upload {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.preferences-progress {
+  display: grid;
+  gap: 0.2rem;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg-light);
+  font-family: var(--font-ui);
+}
+
+.preferences-progress p {
+  margin-bottom: 0;
+  font-size: 0.92rem;
+}
+
+.preferences-label {
+  margin-bottom: 0;
+  color: var(--color-text-light);
+}
+
+.local-data-upload-label {
+  font-weight: 700;
+}
+
+.error-state input[type='file'] {
+  width: 100%;
+  max-width: 100%;
+}
+
 .loading-bar::-webkit-progress-bar {
   background-color: var(--color-bg-light);
   border: 1px solid var(--color-border);

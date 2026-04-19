@@ -1,12 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import {
-  loadAndIndexDictionaries,
+  getDefaultDataFileUrl,
+  hydrateDataFromPersistence,
+  loadAndIndexDictionariesFromUrl,
+  loadAndIndexDictionariesFromFile,
   getDictionaryMetadata,
   getLoadProgress,
   isDataLoaded,
   getDictionaryContextMatches,
   searchTerms,
   subscribeIndexUpdates,
+  isDataFileUnavailableError,
   type DictionaryContextMatch,
   type LoadProgress,
 } from './services/dataService';
@@ -17,7 +21,8 @@ import { DictionaryList } from './components/DictionaryList';
 import { DictionaryBrowser } from './components/DictionaryBrowser';
 import './styles/components.css';
 
-type View = 'search' | 'dictionaries' | 'dictionary';
+type View = 'search' | 'dictionaries' | 'dictionary' | 'preferences';
+type DataSourceMode = 'url' | 'local';
 
 interface AppRouteState {
   view: View;
@@ -29,6 +34,8 @@ interface AppRouteState {
 
 const FALLBACK_REPO_BASE = '/hebrew-academy-terms/';
 const MIN_SEARCH_SPINNER_MS = 320;
+const DATA_SOURCE_MODE_KEY = 'dataSourceMode';
+const DATA_SOURCE_URL_KEY = 'dataSourceUrl';
 
 function normalizeBasePath(path: string): string {
   if (!path.startsWith('/')) {
@@ -96,7 +103,11 @@ function buildAppUrl(state: AppRouteState, basePath: string): string {
     return buildSearchUrl(state.query, basePath);
   }
 
-  const params = new URLSearchParams({ tab: 'dictionaries' });
+  const params = new URLSearchParams({ tab: state.view === 'preferences' ? 'preferences' : 'dictionaries' });
+
+  if (state.view === 'preferences') {
+    return `${basePath}?${params.toString()}`;
+  }
 
   if (state.dictionaryCode) {
     params.set('dict', state.dictionaryCode);
@@ -141,6 +152,16 @@ function readRouteState(location: Location, basePath: string): AppRouteState {
     };
   }
 
+  if (tab === 'preferences') {
+    return {
+      view: 'preferences',
+      query,
+      dictionaryCode: null,
+      subject: null,
+      bucket: null,
+    };
+  }
+
   return {
     view: 'search',
     query,
@@ -154,7 +175,15 @@ export default function App() {
   const [loading, setLoading] = useState(() => !isDataLoaded());
   const [routeReady, setRouteReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMissingBundledData, setIsMissingBundledData] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [preferencesLabel, setPreferencesLabel] = useState<string | null>(null);
+  const [isUploadingLocalData, setIsUploadingLocalData] = useState(false);
   const [view, setView] = useState<View>('search');
+  const [activeDataSourceMode, setActiveDataSourceMode] = useState<DataSourceMode>('url');
+  const [activeDataSourceUrl, setActiveDataSourceUrl] = useState(getDefaultDataFileUrl());
+  const [draftDataSourceMode, setDraftDataSourceMode] = useState<DataSourceMode>('url');
+  const [draftDataSourceUrl, setDraftDataSourceUrl] = useState(getDefaultDataFileUrl());
 
   const [dictionaries, setDictionaries] = useState<DictionaryMetadata[]>([]);
   const [draftQuery, setDraftQuery] = useState('');
@@ -174,6 +203,22 @@ export default function App() {
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedBucket, setSelectedBucket] = useState<string | null>(null);
 
+  const formatBytes = (value: number | null): string => {
+    if (value == null || Number.isNaN(value)) {
+      return '-';
+    }
+
+    if (value < 1024) {
+      return `${value} B`;
+    }
+
+    if (value < 1024 * 1024) {
+      return `${(value / 1024).toFixed(1)} KB`;
+    }
+
+    return `${(value / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
   useEffect(() => {
     const basePath = detectSearchBasePath(window.location.pathname);
     setSearchBasePath(basePath);
@@ -188,51 +233,77 @@ export default function App() {
     setRouteReady(true);
   }, []);
 
-  useEffect(() => {
-    if (isDataLoaded()) {
+  const loadDataFromSelectedSource = async (
+    sourceMode: DataSourceMode,
+    sourceUrl: string,
+    forceReload = false
+  ) => {
+    if (isDataLoaded() && !forceReload) {
       setDictionaries(getDictionaryMetadata());
       setLoadProgress(getLoadProgress());
       setLoading(false);
       return;
     }
 
-    let cancelled = false;
+    try {
+      setLoading(true);
+      setError(null);
+      setUploadError(null);
+      setPreferencesLabel(null);
+      setIsMissingBundledData(false);
+      setLoadProgress(null);
 
-    const init = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        setLoadProgress(null);
-        await loadAndIndexDictionaries({
-          onProgress: (progress) => {
-            if (!cancelled) {
-              setLoadProgress(progress);
-            }
-          },
-        });
+      const hydrated = await hydrateDataFromPersistence({
+        onProgress: (progress) => {
+          setLoadProgress(progress);
+        },
+      });
 
-        if (cancelled) {
-          return;
-        }
-
+      if (hydrated) {
         setDictionaries(getDictionaryMetadata());
-      } catch (err) {
-        if (!cancelled) {
-          const errorMsg = err instanceof Error ? err.message : String(err);
-          setError('שגיאה בטעינת הנתונים: ' + errorMsg);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        return;
       }
-    };
 
-    void init();
+      if (sourceMode === 'local') {
+        setPreferencesLabel('נבחרה טעינה מקובץ מקומי. יש לבחור קובץ data.json.');
+        return;
+      }
 
-    return () => {
-      cancelled = true;
-    };
+      await loadAndIndexDictionariesFromUrl(sourceUrl, {
+        onProgress: (progress) => {
+          setLoadProgress(progress);
+        },
+      });
+
+      setDictionaries(getDictionaryMetadata());
+      setPreferencesLabel('הנתונים נטענו מהכתובת שנבחרה.');
+    } catch (err) {
+      if (isDataFileUnavailableError(err)) {
+        setIsMissingBundledData(true);
+        setError(null);
+        return;
+      }
+
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError('שגיאה בטעינת הנתונים: ' + errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const persistedMode = window.localStorage.getItem(DATA_SOURCE_MODE_KEY);
+    const persistedUrl = window.localStorage.getItem(DATA_SOURCE_URL_KEY);
+
+    const nextMode: DataSourceMode = persistedMode === 'local' ? 'local' : 'url';
+    const nextUrl = persistedUrl?.trim() || getDefaultDataFileUrl();
+
+    setActiveDataSourceMode(nextMode);
+    setActiveDataSourceUrl(nextUrl);
+    setDraftDataSourceMode(nextMode);
+    setDraftDataSourceUrl(nextUrl);
+
+    void loadDataFromSelectedSource(nextMode, nextUrl);
   }, []);
 
   useEffect(() => {
@@ -295,6 +366,12 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
+    if (!isDataLoaded()) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+
     if (!submittedQuery.trim()) {
       setSearchResults([]);
       setSearchLoading(false);
@@ -350,6 +427,11 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
+
+    if (!isDataLoaded()) {
+      setDictionaryContextMatches([]);
+      return;
+    }
 
     if (submittedQuery.trim().length < 2) {
       setDictionaryContextMatches([]);
@@ -415,25 +497,56 @@ export default function App() {
   };
 
   const handleRetryLoad = () => {
+    void loadDataFromSelectedSource(activeDataSourceMode, activeDataSourceUrl, true);
+  };
+
+  const handleLocalDataUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    setIsUploadingLocalData(true);
+    setUploadError(null);
     setError(null);
-    setLoading(true);
+    setPreferencesLabel(null);
     setLoadProgress(null);
 
-    void loadAndIndexDictionaries({
-      onProgress: (progress) => {
-        setLoadProgress(progress);
-      },
-    })
-      .then(() => {
-        setDictionaries(getDictionaryMetadata());
-      })
-      .catch((err) => {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        setError('שגיאה בטעינת הנתונים: ' + errorMsg);
-      })
-      .finally(() => {
-        setLoading(false);
+    try {
+      await loadAndIndexDictionariesFromFile(file, {
+        onProgress: (progress) => {
+          setLoadProgress(progress);
+        },
       });
+
+      setDictionaries(getDictionaryMetadata());
+      setIsMissingBundledData(false);
+      setPreferencesLabel('הקובץ המקומי נטען ונשמר בדפדפן.');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setUploadError('טעינת הקובץ המקומי נכשלה: ' + errorMsg);
+    } finally {
+      setIsUploadingLocalData(false);
+      setLoading(false);
+    }
+  };
+
+  const handleSavePreferences = () => {
+    const normalizedMode: DataSourceMode = draftDataSourceMode === 'local' ? 'local' : 'url';
+    const normalizedUrl = draftDataSourceUrl.trim() || getDefaultDataFileUrl();
+
+    setActiveDataSourceMode(normalizedMode);
+    setActiveDataSourceUrl(normalizedUrl);
+
+    window.localStorage.setItem(DATA_SOURCE_MODE_KEY, normalizedMode);
+    window.localStorage.setItem(DATA_SOURCE_URL_KEY, normalizedUrl);
+
+    setDraftDataSourceUrl(normalizedUrl);
+  setPreferencesLabel('ההעדפות נשמרו.');
+
+    void loadDataFromSelectedSource(normalizedMode, normalizedUrl, true);
   };
 
   const getSearchHref = (queryText: string) => buildSearchUrl(queryText, searchBasePath);
@@ -492,19 +605,6 @@ export default function App() {
     setSelectedDictName(null);
   };
 
-  if (error) {
-    return (
-      <div className="app-container">
-        <div className="error error-state">
-          <p>{error}</p>
-          <button className="secondary" onClick={handleRetryLoad}>
-            נסה שוב
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const isIndexingInBackground = loading && !loadProgress?.isComplete;
   const shouldShowSearchingState =
     searchLoading ||
@@ -549,10 +649,43 @@ export default function App() {
         >
            מילונים
         </button>
+        <button
+          className={`view-tab ${view === 'preferences' ? 'active' : ''}`}
+          onClick={() => {
+            setView('preferences');
+          }}
+          aria-selected={view === 'preferences'}
+        >
+          העדפות
+        </button>
       </div>
+
+      {(error || isMissingBundledData) ? (
+        <div className="error error-state">
+          {error ? <p>{error}</p> : null}
+          {isMissingBundledData ? (
+            <>
+              <p>קובץ הנתונים לא נמצא בכתובת שנבחרה.</p>
+              <p>אפשר לעבור ללשונית "העדפות" ולבחור כתובת אחרת, או לעבור לטעינה מקובץ מקומי.</p>
+              <button className="secondary" onClick={() => setView('preferences')}>
+                פתח העדפות
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       {view === 'search' && (
         <div>
+          {!isDataLoaded() && !loading ? (
+            <div className="error error-state status-state">
+              <p>אין נתונים זמינים כרגע. יש לבחור מקור נתונים בלשונית "העדפות".</p>
+              <button className="secondary" onClick={() => setView('preferences')}>
+                פתח העדפות
+              </button>
+            </div>
+          ) : null}
+
           <SearchBar
             ref={searchInputRef}
             query={draftQuery}
@@ -680,28 +813,151 @@ export default function App() {
       )}
 
       {view === 'dictionaries' && !selectedDictCode && (
-        <DictionaryList
-          dictionaries={dictionaries}
-          onSelectDictionary={handleSelectDictionary}
-          getDictionaryHref={getDictionaryHref}
-        />
+        isDataLoaded() ? (
+          <DictionaryList
+            dictionaries={dictionaries}
+            onSelectDictionary={handleSelectDictionary}
+            getDictionaryHref={getDictionaryHref}
+          />
+        ) : (
+          <div className="error error-state status-state">
+            <p>כדי לעיין במילונים, יש לטעון נתונים בלשונית "העדפות".</p>
+            <button className="secondary" onClick={() => setView('preferences')}>
+              פתח העדפות
+            </button>
+          </div>
+        )
       )}
 
       {view === 'dictionary' && selectedDictCode && selectedDictName && (
-        <DictionaryBrowser
-          dictionaryName={selectedDictName}
-          dictionaryCode={selectedDictCode}
-          useVowels={useVowels}
-          selectedSubject={selectedSubject}
-          selectedBucket={selectedBucket}
-          onSelectSubject={setSelectedSubject}
-          onSelectBucket={setSelectedBucket}
-          getSubjectHref={getSubjectHref}
-          getBucketHref={getBucketHref}
-          onTermClick={handleTermClick}
-          onSearchText={handleSearchText}
-          getSearchHref={getSearchHref}
-        />
+        isDataLoaded() ? (
+          <DictionaryBrowser
+            dictionaryName={selectedDictName}
+            dictionaryCode={selectedDictCode}
+            useVowels={useVowels}
+            selectedSubject={selectedSubject}
+            selectedBucket={selectedBucket}
+            onSelectSubject={setSelectedSubject}
+            onSelectBucket={setSelectedBucket}
+            getSubjectHref={getSubjectHref}
+            getBucketHref={getBucketHref}
+            onTermClick={handleTermClick}
+            onSearchText={handleSearchText}
+            getSearchHref={getSearchHref}
+          />
+        ) : (
+          <div className="error error-state status-state">
+            <p>כדי לפתוח מילון, יש לטעון נתונים בלשונית "העדפות".</p>
+            <button className="secondary" onClick={() => setView('preferences')}>
+              פתח העדפות
+            </button>
+          </div>
+        )
+      )}
+
+      {view === 'preferences' && (
+        <section className="preferences-panel" aria-label="העדפות מקור נתונים">
+          <h2 className="hebrew-text">העדפות מקור נתונים</h2>
+          <p>בחרו אם לטעון את הנתונים מכתובת URL או מקובץ מקומי.</p>
+
+          <div className="preferences-options">
+            <label className="preferences-option">
+              <input
+                type="radio"
+                name="data-source-mode"
+                checked={draftDataSourceMode === 'url'}
+                onChange={() => setDraftDataSourceMode('url')}
+              />
+              <span>טעינה מכתובת URL</span>
+            </label>
+
+            <label className="preferences-option">
+              <input
+                type="radio"
+                name="data-source-mode"
+                checked={draftDataSourceMode === 'local'}
+                onChange={() => setDraftDataSourceMode('local')}
+              />
+              <span>טעינה מקובץ מקומי</span>
+            </label>
+          </div>
+
+          <div className="preferences-field">
+            <label htmlFor="data-source-url">כתובת קובץ נתונים (URL)</label>
+            <input
+              id="data-source-url"
+              type="url"
+              value={draftDataSourceUrl}
+              onChange={(event) => setDraftDataSourceUrl(event.target.value)}
+              disabled={draftDataSourceMode !== 'url'}
+              dir="ltr"
+            />
+            <p className="preferences-hint">ברירת מחדל: {getDefaultDataFileUrl()}</p>
+          </div>
+
+          <div className="preferences-actions">
+            <button className="secondary" onClick={handleSavePreferences}>
+              שמירה וטעינה
+            </button>
+            <button className="secondary" onClick={handleRetryLoad}>
+              טען מחדש לפי ההעדפה הפעילה
+            </button>
+          </div>
+
+          {activeDataSourceMode === 'local' ? (
+            <div className="preferences-local-upload">
+              <label className="local-data-upload-label" htmlFor="local-data-upload-input-preferences">
+                בחרו קובץ data.json מהמחשב
+              </label>
+              <input
+                id="local-data-upload-input-preferences"
+                type="file"
+                accept="application/json,.json"
+                onChange={(event) => {
+                  void handleLocalDataUpload(event);
+                }}
+                disabled={isUploadingLocalData}
+              />
+              {isUploadingLocalData ? <p>טוען את הקובץ המקומי ומאחסן בדפדפן...</p> : null}
+              {uploadError ? <p>{uploadError}</p> : null}
+
+              {loadProgress ? (
+                <div className="preferences-progress" aria-live="polite">
+                  <p>
+                    התקדמות: {loadProgress.percentage !== null ? `${loadProgress.percentage}%` : '-'}
+                  </p>
+                  <p>
+                    bytes: {formatBytes(loadProgress.loadedBytes)} / {formatBytes(loadProgress.totalBytes)}
+                  </p>
+                  <p>
+                    remaining: {formatBytes(loadProgress.remainingBytes)}
+                  </p>
+                  <p>
+                    parsed dictionaries: {loadProgress.parsedElements}
+                  </p>
+                  <p>
+                    indexed terms: {loadProgress.indexedTerms}
+                  </p>
+                  <p>
+                    state: {loadProgress.isComplete ? 'complete' : 'in-progress'}
+                  </p>
+                </div>
+              ) : null}
+
+              {preferencesLabel ? (
+                <p className="preferences-label" aria-live="polite">
+                  {preferencesLabel}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {activeDataSourceMode === 'url' && preferencesLabel ? (
+            <p className="preferences-label" aria-live="polite">
+              {preferencesLabel}
+            </p>
+          ) : null}
+        </section>
       )}
     </div>
   );
