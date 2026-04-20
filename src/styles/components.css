@@ -159,7 +159,6 @@
 .term-token {
   display: inline-flex;
   align-items: baseline;
-  white-space: nowrap;
 }
 
 .term-link {
@@ -229,6 +228,21 @@
 .term-row {
 }
 
+.term-row-single-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+}
+
+.term-row-single-line .term-row-def {
+  padding-inline-start: 0;
+}
+
+.term-row-single-line .term-row-source {
+  margin-inline-start: 0;
+}
+
 .term-rows {
 }
 
@@ -249,12 +263,12 @@
   color: var(--color-text-light);
   font-family: var(--font-english);
   min-width: 0;
+  font-size: small;
   padding-inline-start: 1em;
 }
 
 .term-row-source {
   color: var(--color-text-light);
-  white-space: nowrap;
   font-family: var(--font-hebrew);
   margin-inline-start: 0.3rem;
 }
@@ -358,6 +372,10 @@
   margin-bottom: var(--spacing-lg);
 }
 
+.view-tab:last-child {
+  margin-inline-start: auto;
+}
+
 .view-tab {
   padding: var(--spacing-md) var(--spacing-lg);
   background: none;
@@ -370,7 +388,7 @@
 
 .view-tab.active {
   color: var(--color-text);
-  border-bottom-color: var(--color-text);
+  background: var(--color-bg-light);
 }
 
 .view-tab:hover {
@@ -380,41 +398,47 @@
 
 /* Dictionary List */
 .dictionary-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
 }
 
 .dictionary-card {
-  display: block;
-  padding: var(--spacing-lg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg);
-  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   transition: none;
-  text-align: center;
-  color: var(--color-text);
+  text-align: right;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
-.dictionary-card:link,
-.dictionary-card:visited {
-  color: var(--color-text);
+.dictionary-card-content {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-md);
+  flex: 1;
 }
 
-.dictionary-card:hover {
-  box-shadow: none;
-  border-color: var(--color-border);
-}
-
-.dictionary-card h3 {
+.dictionary-card-name {
   font-family: var(--font-hebrew);
-  margin-bottom: var(--spacing-sm);
+  font-weight: 500;
+  color: var(--color-text);
+  text-decoration: none;
 }
 
-.dictionary-card p {
-  margin-bottom: 0;
+.dictionary-card-name:hover {
+  text-decoration: underline;
+}
+
+.dictionary-card-count {
   color: var(--color-text-light);
+  margin-inline-start: auto;
+  flex-shrink: 0; 
+}
+.dictionary-card-year {
+  color: var(--color-text-light);
+  font-size: 0.85em;
+  flex-shrink: 0;
 }
 
 /* Dictionary Browser */
@@ -423,55 +447,25 @@
   flex-direction: column;
 }
 
-.subjects-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--spacing-sm);
-}
-
-.subject-card {
-  display: block;
-  text-align: right;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
-  color: var(--color-text);
-  padding: var(--spacing-sm) var(--spacing-md);
-}
-
-.subject-card:link,
-.subject-card:visited {
-  color: var(--color-text);
-}
-
-.subject-card:hover {
-  background: var(--color-bg-light);
-  color: var(--color-text);
-}
-
-.subject-header {
-  margin-bottom: var(--spacing-sm);
-}
 
 .subject-buckets {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
 }
 
 .subject-bucket {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2rem;
-  padding: 0.2rem 0.5rem;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-light);
-  color: var(--color-text);
+    width: 2em;
+    display: block;
+    text-align: center;
+    height: 2em;
+    border: 1px solid var(--color-border);
 }
 
-.subject-bucket:link,
-.subject-bucket:visited {
-  color: var(--color-text);
+.subject-bucket:hover {
+    text-decoration: none;
+    color: var(--color-text-light);
 }
 
 .subject-bucket.active {
@@ -532,7 +526,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
   gap: var(--spacing-md);
 }
 
@@ -715,12 +711,30 @@
   background-color: var(--color-bg);
 }
 
+.preferences-header {
+  display: grid;
+  gap: var(--spacing-xs);
+}
+
 .preferences-panel h2 {
   margin-bottom: 0;
 }
 
 .preferences-panel p {
   margin-bottom: 0;
+}
+
+.preferences-source-summary {
+  display: grid;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg-light);
+  text-align: left;
+}
+
+.preferences-source-summary-title {
+  font-weight: 700;
 }
 
 .preferences-options {
@@ -741,9 +755,12 @@
 
 .preferences-hint {
   color: var(--color-text-light);
+  font-size: 0.9rem;
+}
+
+.preferences-hint-ltr {
   direction: ltr;
   text-align: left;
-  font-size: 0.9rem;
 }
 
 .preferences-actions {
@@ -758,6 +775,7 @@
 }
 
 .preferences-progress {
+  text-align: left;
   display: grid;
   gap: 0.2rem;
   padding: var(--spacing-sm);
@@ -774,6 +792,27 @@
 .preferences-label {
   margin-bottom: 0;
   color: var(--color-text-light);
+}
+
+.notice-state {
+  display: grid;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg-light);
+  color: var(--color-text);
+}
+
+.notice-state p {
+  margin-bottom: 0;
+}
+
+.notice-state .secondary {
+  justify-self: start;
+}
+
+.notice-state a {
+  text-decoration: underline;
 }
 
 .local-data-upload-label {
@@ -845,11 +884,6 @@
     width: fit-content;
   }
 
-  .term-row {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-
   .term-row-source {
     margin-top: 0.1rem;
   }
@@ -881,7 +915,7 @@
   }
 
   .view-tab {
-    white-space: nowrap;
+    gap: 0;
   }
 }
 
@@ -1005,4 +1039,7 @@
   padding-top: var(--spacing-md);
   color: var(--color-text-light);
   text-align: center;
+  font-size: x-small;
+  display: grid;
+  gap: var(--spacing-md);
 }

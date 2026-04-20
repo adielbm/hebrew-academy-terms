@@ -15,10 +15,15 @@ interface DictionaryBrowserProps {
   useVowels: boolean;
   selectedSubject: string | null;
   selectedBucket: string | null;
-  onSelectSubject: (subject: string | null) => void;
-  onSelectBucket: (bucket: string | null) => void;
+  onSelectSubject: (subject: string | null, replaceHistory?: boolean) => void;
+  onSelectBucket: (bucket: string | null, replaceHistory?: boolean) => void;
+  getDictionaryHref: (code: string) => string;
   getSubjectHref: (subject: string) => string;
   getBucketHref: (bucket: string) => string;
+  allowAutoRedirect: boolean;
+  debugMode: boolean;
+  onOpenDictionary: (code: string) => void;
+  onOpenDictionarySubject: (code: string, subject: string) => void;
   onTermClick: (term: IndexedTerm) => void;
   onSearchText: (query: string) => void;
   getSearchHref: (query: string) => string;
@@ -47,8 +52,13 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
   selectedBucket,
   onSelectSubject,
   onSelectBucket,
+  getDictionaryHref,
   getSubjectHref,
   getBucketHref,
+  allowAutoRedirect,
+  debugMode,
+  onOpenDictionary,
+  onOpenDictionarySubject,
   onTermClick,
   onSearchText,
   getSearchHref,
@@ -63,6 +73,21 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
       const nextSubjects = await getDictionarySubjects(dictionaryCode);
       if (!cancelled) {
         setSubjects(nextSubjects);
+        // Auto-select the only subject if there's exactly one
+        if (allowAutoRedirect && nextSubjects.length === 1 && !selectedSubject) {
+          if (debugMode) {
+            console.info('[dictionary] auto-selected only subject', {
+              dictionaryCode,
+              subject: nextSubjects[0],
+            });
+          }
+          onSelectSubject(nextSubjects[0], true);
+        } else if (debugMode && nextSubjects.length === 1 && !selectedSubject) {
+          console.info('[dictionary] skipped auto subject redirect during history restore', {
+            dictionaryCode,
+            subject: nextSubjects[0],
+          });
+        }
       }
     };
 
@@ -83,7 +108,7 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
       cancelled = true;
       unsubscribe();
     };
-  }, [dictionaryCode, selectedSubject]);
+  }, [allowAutoRedirect, debugMode, dictionaryCode, selectedSubject, onSelectSubject]);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,9 +132,13 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
   const buckets = useMemo(() => getBuckets(subjectTerms), [subjectTerms]);
 
   useEffect(() => {
+    if (!allowAutoRedirect) {
+      return;
+    }
+
     if (subjectTerms.length <= SUBJECT_TERM_CHUNK_THRESHOLD) {
       if (selectedBucket !== null) {
-        onSelectBucket(null);
+        onSelectBucket(null, true);
       }
       return;
     }
@@ -118,8 +147,15 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
       return;
     }
 
-    onSelectBucket(buckets[0] ?? null);
-  }, [buckets, onSelectBucket, selectedBucket, subjectTerms.length]);
+    if (debugMode && buckets[0]) {
+      console.info('[dictionary] auto-selected bucket', {
+        dictionaryCode,
+        subject: selectedSubject,
+        bucket: buckets[0],
+      });
+    }
+    onSelectBucket(buckets[0] ?? null, true);
+  }, [allowAutoRedirect, buckets, debugMode, dictionaryCode, onSelectBucket, selectedBucket, selectedSubject, subjectTerms.length]);
 
   const displayedTerms = useMemo(() => {
     if (subjectTerms.length <= SUBJECT_TERM_CHUNK_THRESHOLD || !selectedBucket) {
@@ -144,6 +180,7 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
     }
 
     event.preventDefault();
+    window.scrollTo({ top: 0, behavior: 'auto' });
     onSelectSubject(subject);
     onSelectBucket(null);
   };
@@ -177,21 +214,27 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
       </div>
 
       {!selectedSubject ? (
-        <div className="subjects-list" role="list">
+        <div className="dictionary-list subjects-list" role="list">
           {subjects.length === 0 ? (
             <p style={{ textAlign: 'center', color: 'var(--color-text-light)' }}>
               אין נושאים זמינים עדיין.
             </p>
           ) : (
             subjects.map((subject) => (
-              <a
+              <div
                 key={subject}
-                className="subject-card"
-                href={getSubjectHref(subject)}
-                onClick={(event) => handleSubjectLinkClick(event, subject)}
+                className="dictionary-card subject-card"
               >
-                {subject}
-              </a>
+                <div className="dictionary-card-content">
+                  <a
+                    className="dictionary-card-name"
+                    href={getSubjectHref(subject)}
+                    onClick={(event) => handleSubjectLinkClick(event, subject)}
+                  >
+                    {subject}
+                  </a>
+                </div>
+              </div>
             ))
           )}
         </div>
@@ -236,6 +279,10 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
                   onTermClick={onTermClick}
                   onSearchText={onSearchText}
                   getSearchHref={getSearchHref}
+                  getDictionaryHref={getDictionaryHref}
+                  getSubjectHref={getSubjectHref}
+                  onOpenDictionary={onOpenDictionary}
+                  onOpenDictionarySubject={onOpenDictionarySubject}
                 />
               ))}
             </div>

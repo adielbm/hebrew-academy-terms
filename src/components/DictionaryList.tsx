@@ -15,29 +15,36 @@ export const DictionaryList: FC<DictionaryListProps> = ({
   return (
     <div className="dictionary-list">
       {dictionaries.map((dict) => (
-        <a
+        <div
           key={dict.dictionary_code}
           className="dictionary-card"
-          href={getDictionaryHref(dict.dictionary_code)}
-          onClick={(event) => {
-            if (
-              event.button !== 0 ||
-              event.metaKey ||
-              event.altKey ||
-              event.ctrlKey ||
-              event.shiftKey
-            ) {
-              return;
-            }
-
-            event.preventDefault();
-            onSelectDictionary(dict.dictionary_code);
-          }}
-          aria-label={`פתח ${dict.dictionary_name}`}
         >
-          <h3>{dict.dictionary_name}</h3>
-          <p>{dict.terms_count} מונחים</p>
-        </a>
+          <div className="dictionary-card-content">
+            <a
+              className="dictionary-card-name"
+              href={getDictionaryHref(dict.dictionary_code)}
+              onClick={(event) => {
+                if (
+                  event.button !== 0 ||
+                  event.metaKey ||
+                  event.altKey ||
+                  event.ctrlKey ||
+                  event.shiftKey
+                ) {
+                  return;
+                }
+
+                event.preventDefault();
+                onSelectDictionary(dict.dictionary_code);
+              }}
+              aria-label={`פתח ${dict.dictionary_name}`}
+            >
+              {dict.dictionary_name}
+            </a>
+            <span className="dictionary-card-count">{dict.terms_count}</span>
+            {dict.year && <span className="dictionary-card-year">({dict.year})</span>}
+          </div>
+        </div>
       ))}
     </div>
   );

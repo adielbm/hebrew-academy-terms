@@ -1,15 +1,16 @@
-the original site (https://terms.hebrew-academy.org.il/) is currently [down](https://www.ynet.co.il/news/article/sjb04v0f11e) (as of April 2026), so i made this site so i can still use it, but the data is not included in the repo (due to copyright issues), but you can get it yourself from the Web Archive, and convert it to JSON using the provided script. 
+https://terms.hebrew-academy.org.il/ is currently [down](https://www.ynet.co.il/news/article/sjb04v0f11e) (as of April 2026), so i made this site so i can still use it, but the data is not included in the repo (due to copyright issues), but you can get it yourself from the Web Archive, and convert it to JSON using the provided script. 
 
 # data setup
 
-1. HTML: first have a folder with all the source HTML files from Web Archive. full list of urls: https://web.archive.org/web/20250627114638/https://terms.hebrew-academy.org.il/Millonim.aspx 
-2. HTML TO JSON: run `html-to-json-converter.mjs` (it might need some modification to work) to convert the source HTML files to a single JSON file, that will be either:
-    - located in `public/data.json`, OR
-    - loaded as a local file (in the app settings)
+1. **HTML**: first have a folder with all the source HTML files from https://web.archive.org/. 
+    - full list of urls: https://web.archive.org/web/20250613145754/https://terms.hebrew-academy.org.il/Millonim
+2. **HTML TO JSON**: 
+    - run `html-to-json-converter.mjs` (it might need some modification to work) to convert the source HTML files to a single JSON file. see below a [sample](#json-sample) and [schema.json](public/schema.json) for the expected format.
 
-# live site (without data)
+# live site
 
 https://adielbm.github.io/hebrew-academy-terms/
+
 
 # dev
 
@@ -20,7 +21,7 @@ https://adielbm.github.io/hebrew-academy-terms/
 ![screenshot](screenshot.png)
 
 
-# data.json sample
+# json sample
 
 see also: public/schema.json
 

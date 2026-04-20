@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import {
-  getDefaultDataFileUrl,
   hydrateDataFromPersistence,
   loadAndIndexDictionariesFromUrl,
   loadAndIndexDictionariesFromFile,
@@ -36,6 +35,17 @@ const FALLBACK_REPO_BASE = '/hebrew-academy-terms/';
 const MIN_SEARCH_SPINNER_MS = 320;
 const DATA_SOURCE_MODE_KEY = 'dataSourceMode';
 const DATA_SOURCE_URL_KEY = 'dataSourceUrl';
+const DEBUG_MODE_KEY = 'debugMode';
+
+function isValidExternalDataUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    const isHttp = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    return isHttp && parsed.origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+}
 
 function normalizeBasePath(path: string): string {
   if (!path.startsWith('/')) {
@@ -180,10 +190,11 @@ export default function App() {
   const [preferencesLabel, setPreferencesLabel] = useState<string | null>(null);
   const [isUploadingLocalData, setIsUploadingLocalData] = useState(false);
   const [view, setView] = useState<View>('search');
-  const [activeDataSourceMode, setActiveDataSourceMode] = useState<DataSourceMode>('url');
-  const [activeDataSourceUrl, setActiveDataSourceUrl] = useState(getDefaultDataFileUrl());
-  const [draftDataSourceMode, setDraftDataSourceMode] = useState<DataSourceMode>('url');
-  const [draftDataSourceUrl, setDraftDataSourceUrl] = useState(getDefaultDataFileUrl());
+  const [activeDataSourceMode, setActiveDataSourceMode] = useState<DataSourceMode>('local');
+  const [activeDataSourceUrl, setActiveDataSourceUrl] = useState('');
+  const [draftDataSourceMode, setDraftDataSourceMode] = useState<DataSourceMode>('local');
+  const [draftDataSourceUrl, setDraftDataSourceUrl] = useState('');
+  const [debugMode, setDebugMode] = useState(() => window.localStorage.getItem(DEBUG_MODE_KEY) === 'true');
 
   const [dictionaries, setDictionaries] = useState<DictionaryMetadata[]>([]);
   const [draftQuery, setDraftQuery] = useState('');
@@ -202,6 +213,8 @@ export default function App() {
   const [selectedDictName, setSelectedDictName] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedBucket, setSelectedBucket] = useState<string | null>(null);
+  const historyActionRef = useRef<'push' | 'replace'>('push');
+  const navigationSourceRef = useRef<'push' | 'pop'>('push');
 
   const formatBytes = (value: number | null): string => {
     if (value == null || Number.isNaN(value)) {
@@ -217,6 +230,23 @@ export default function App() {
     }
 
     return `${(value / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const debugLog = (
+    level: 'info' | 'warn' | 'error',
+    message: string,
+    details?: unknown
+  ) => {
+    if (!debugMode) {
+      return;
+    }
+
+    const logger = console[level] ?? console.log;
+    if (details !== undefined) {
+      logger.call(console, message, details);
+    } else {
+      logger.call(console, message);
+    }
   };
 
   useEffect(() => {
@@ -253,6 +283,8 @@ export default function App() {
       setIsMissingBundledData(false);
       setLoadProgress(null);
 
+      debugLog('info', '[data] loading', { sourceMode, sourceUrl, forceReload });
+
       const hydrated = await hydrateDataFromPersistence({
         onProgress: (progress) => {
           setLoadProgress(progress);
@@ -265,7 +297,8 @@ export default function App() {
       }
 
       if (sourceMode === 'local') {
-        setPreferencesLabel('נבחרה טעינה מקובץ מקומי. יש לבחור קובץ data.json.');
+        setPreferencesLabel('בחרו קובץ data.json מהמחשב כדי לטעון את הנתונים.');
+        debugLog('warn', '[data] no local file selected');
         return;
       }
 
@@ -277,15 +310,18 @@ export default function App() {
 
       setDictionaries(getDictionaryMetadata());
       setPreferencesLabel('הנתונים נטענו מהכתובת שנבחרה.');
+      debugLog('info', '[data] loaded from url');
     } catch (err) {
       if (isDataFileUnavailableError(err)) {
         setIsMissingBundledData(true);
         setError(null);
+        debugLog('warn', '[data] bundled data unavailable');
         return;
       }
 
       const errorMsg = err instanceof Error ? err.message : String(err);
       setError('שגיאה בטעינת הנתונים: ' + errorMsg);
+      debugLog('error', '[data] load failed', err);
     } finally {
       setLoading(false);
     }
@@ -295,8 +331,10 @@ export default function App() {
     const persistedMode = window.localStorage.getItem(DATA_SOURCE_MODE_KEY);
     const persistedUrl = window.localStorage.getItem(DATA_SOURCE_URL_KEY);
 
-    const nextMode: DataSourceMode = persistedMode === 'local' ? 'local' : 'url';
-    const nextUrl = persistedUrl?.trim() || getDefaultDataFileUrl();
+    const normalizedPersistedUrl = persistedUrl?.trim() || '';
+    const persistedUrlIsExternal = isValidExternalDataUrl(normalizedPersistedUrl);
+    const nextMode: DataSourceMode = persistedMode === 'url' && persistedUrlIsExternal ? 'url' : 'local';
+    const nextUrl = persistedUrlIsExternal ? normalizedPersistedUrl : '';
 
     setActiveDataSourceMode(nextMode);
     setActiveDataSourceUrl(nextUrl);
@@ -305,6 +343,10 @@ export default function App() {
 
     void loadDataFromSelectedSource(nextMode, nextUrl);
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(DEBUG_MODE_KEY, String(debugMode));
+  }, [debugMode]);
 
   useEffect(() => {
     return subscribeIndexUpdates(() => {
@@ -325,7 +367,9 @@ export default function App() {
 
   useEffect(() => {
     const handlePopState = () => {
+      navigationSourceRef.current = 'pop';
       const route = readRouteState(window.location, searchBasePath);
+      debugLog('info', '[route] popstate', route);
       setView(route.view);
       setSelectedDictCode(route.dictionaryCode);
       setSelectedSubject(route.subject);
@@ -358,9 +402,64 @@ export default function App() {
     );
     const currentUrl = `${window.location.pathname}${window.location.search}`;
     if (currentUrl !== nextUrl) {
-      window.history.pushState({}, '', nextUrl);
+      const nextHistoryAction = historyActionRef.current;
+      historyActionRef.current = 'push';
+      debugLog('info', '[route] sync', {
+        currentUrl,
+        nextUrl,
+        action: nextHistoryAction,
+        view,
+        dictionaryCode: selectedDictCode,
+        subject: selectedSubject,
+        bucket: selectedBucket,
+      });
+
+      if (nextHistoryAction === 'replace') {
+        window.history.replaceState({}, '', nextUrl);
+      } else {
+        window.history.pushState({}, '', nextUrl);
+      }
     }
   }, [routeReady, submittedQuery, searchBasePath, selectedBucket, selectedDictCode, selectedSubject, view]);
+
+  useEffect(() => {
+    if (view === 'search') {
+      const trimmedQuery = submittedQuery.trim();
+      document.title = trimmedQuery ? trimmedQuery : 'מונחי האקדמיה ללשון העברית';
+      return;
+    }
+
+    if (view === 'dictionaries') {
+      document.title = 'מילונים';
+      return;
+    }
+
+    if (view === 'dictionary') {
+      if (selectedSubject) {
+        document.title = selectedSubject;
+        return;
+      }
+
+      if (selectedDictName) {
+        document.title = selectedDictName;
+        return;
+      }
+
+      document.title = 'מונחי האקדמיה ללשון העברית';
+      return;
+    }
+
+    if (view === 'preferences') {
+      document.title = 'העדפות';
+      return;
+    }
+
+    document.title = 'מונחי האקדמיה ללשון העברית';
+  }, [selectedBucket, selectedDictName, selectedSubject, submittedQuery, view]);
+
+  const scrollPageTop = () => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
 
   // Handle search
   useEffect(() => {
@@ -453,8 +552,10 @@ export default function App() {
   }, [submittedQuery, indexRevision]);
 
   const handleSelectDictionary = (code: string) => {
+    navigationSourceRef.current = 'push';
     const dict = dictionaries.find((d) => d.dictionary_code === code);
     if (dict) {
+      scrollPageTop();
       setSelectedDictCode(code);
       setSelectedDictName(dict.dictionary_name);
       setSelectedSubject(null);
@@ -463,7 +564,59 @@ export default function App() {
     }
   };
 
+  const handleOpenDictionary = (code: string, replaceHistory = false) => {
+    navigationSourceRef.current = 'push';
+    if (replaceHistory) {
+      historyActionRef.current = 'replace';
+    }
+
+    handleSelectDictionary(code);
+  };
+
+  const handleOpenDictionarySubject = (
+    code: string,
+    subject: string,
+    replaceHistory = false
+  ) => {
+    navigationSourceRef.current = 'push';
+    if (replaceHistory) {
+      historyActionRef.current = 'replace';
+    }
+
+    const dict = dictionaries.find((item) => item.dictionary_code === code);
+    if (!dict) {
+      return;
+    }
+
+    scrollPageTop();
+    setSelectedDictCode(code);
+    setSelectedDictName(dict.dictionary_name);
+    setSelectedSubject(subject);
+    setSelectedBucket(null);
+    setView('dictionary');
+  };
+
+  const handleSelectSubject = (subject: string | null, replaceHistory = false) => {
+    navigationSourceRef.current = 'push';
+    if (replaceHistory) {
+      historyActionRef.current = 'replace';
+    }
+
+    setSelectedSubject(subject);
+    setSelectedBucket(null);
+  };
+
+  const handleSelectBucket = (bucket: string | null, replaceHistory = false) => {
+    navigationSourceRef.current = 'push';
+    if (replaceHistory) {
+      historyActionRef.current = 'replace';
+    }
+
+    setSelectedBucket(bucket);
+  };
+
   const handleSearchSubmit = () => {
+    navigationSourceRef.current = 'push';
     const nextQuery = draftQuery.trim();
     if (nextQuery.length >= 2 && nextQuery !== submittedQuery) {
       setSearchLoading(true);
@@ -478,6 +631,7 @@ export default function App() {
   };
 
   const handleSearchText = (queryText: string) => {
+    navigationSourceRef.current = 'push';
     if (queryText.trim().length >= 2 && queryText !== submittedQuery) {
       setSearchLoading(true);
     }
@@ -491,13 +645,9 @@ export default function App() {
     setSubmittedQuery(queryText);
 
     requestAnimationFrame(() => {
-      searchInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      searchInputRef.current?.scrollIntoView({ behavior: 'auto', block: 'center' });
       searchInputRef.current?.focus();
     });
-  };
-
-  const handleRetryLoad = () => {
-    void loadDataFromSelectedSource(activeDataSourceMode, activeDataSourceUrl, true);
   };
 
   const handleLocalDataUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -521,6 +671,9 @@ export default function App() {
         },
       });
 
+      setActiveDataSourceMode('local');
+      setDraftDataSourceMode('local');
+      window.localStorage.setItem(DATA_SOURCE_MODE_KEY, 'local');
       setDictionaries(getDictionaryMetadata());
       setIsMissingBundledData(false);
       setPreferencesLabel('הקובץ המקומי נטען ונשמר בדפדפן.');
@@ -534,8 +687,14 @@ export default function App() {
   };
 
   const handleSavePreferences = () => {
+    navigationSourceRef.current = 'push';
     const normalizedMode: DataSourceMode = draftDataSourceMode === 'local' ? 'local' : 'url';
-    const normalizedUrl = draftDataSourceUrl.trim() || getDefaultDataFileUrl();
+    const normalizedUrl = draftDataSourceUrl.trim();
+
+    if (normalizedMode === 'url' && !isValidExternalDataUrl(normalizedUrl)) {
+      setPreferencesLabel('כדי להוריד נתונים מכתובת, יש להזין URL חיצוני מלא (http/https).');
+      return;
+    }
 
     setActiveDataSourceMode(normalizedMode);
     setActiveDataSourceUrl(normalizedUrl);
@@ -544,7 +703,7 @@ export default function App() {
     window.localStorage.setItem(DATA_SOURCE_URL_KEY, normalizedUrl);
 
     setDraftDataSourceUrl(normalizedUrl);
-  setPreferencesLabel('ההעדפות נשמרו.');
+    setPreferencesLabel('ההעדפות נשמרו.');
 
     void loadDataFromSelectedSource(normalizedMode, normalizedUrl, true);
   };
@@ -600,11 +759,31 @@ export default function App() {
     );
 
   const handleBackToSearch = () => {
+    navigationSourceRef.current = 'push';
     setView('search');
     setSelectedDictCode(null);
     setSelectedDictName(null);
   };
 
+  const totalTermsInDb = dictionaries.reduce((sum, dictionary) => {
+    const count = Number(dictionary.terms_count);
+    return Number.isFinite(count) ? sum + count : sum;
+  }, 0);
+  const indexingPercentage = (() => {
+    if (!loadProgress) {
+      return null;
+    }
+
+    if (loadProgress.isComplete) {
+      return 100;
+    }
+
+    if (totalTermsInDb <= 0) {
+      return 0;
+    }
+
+    return Math.min(100, Math.round((loadProgress.indexedTerms / totalTermsInDb) * 100));
+  })();
   const isIndexingInBackground = loading && !loadProgress?.isComplete;
   const shouldShowSearchingState =
     searchLoading ||
@@ -639,6 +818,7 @@ export default function App() {
         <button
           className={`view-tab ${view === 'dictionaries' || view === 'dictionary' ? 'active' : ''}`}
           onClick={() => {
+            navigationSourceRef.current = 'push';
             setView('dictionaries');
             setSelectedDictCode(null);
             setSelectedDictName(null);
@@ -652,6 +832,7 @@ export default function App() {
         <button
           className={`view-tab ${view === 'preferences' ? 'active' : ''}`}
           onClick={() => {
+            navigationSourceRef.current = 'push';
             setView('preferences');
           }}
           aria-selected={view === 'preferences'}
@@ -661,12 +842,12 @@ export default function App() {
       </div>
 
       {(error || isMissingBundledData) ? (
-        <div className="error error-state">
+        <div className={error ? 'error error-state' : 'status-state notice-state'}>
           {error ? <p>{error}</p> : null}
           {isMissingBundledData ? (
             <>
-              <p>קובץ הנתונים לא נמצא בכתובת שנבחרה.</p>
-              <p>אפשר לעבור ללשונית "העדפות" ולבחור כתובת אחרת, או לעבור לטעינה מקובץ מקומי.</p>
+              <p>לא מצאנו את קובץ הנתונים בכתובת שנבחרה.</p>
+              <p>כדי להמשיך, פותחים את לשונית "העדפות" ובוחרים כתובת אחרת או קובץ מקומי.</p>
               <button className="secondary" onClick={() => setView('preferences')}>
                 פתח העדפות
               </button>
@@ -678,8 +859,8 @@ export default function App() {
       {view === 'search' && (
         <div>
           {!isDataLoaded() && !loading ? (
-            <div className="error error-state status-state">
-              <p>אין נתונים זמינים כרגע. יש לבחור מקור נתונים בלשונית "העדפות".</p>
+            <div className="status-state notice-state">
+              <p>כדי להתחיל, יש לטעון נתונים בלשונית "העדפות".</p>
               <button className="secondary" onClick={() => setView('preferences')}>
                 פתח העדפות
               </button>
@@ -721,6 +902,10 @@ export default function App() {
                       onTermClick={handleTermClick}
                       onSearchText={handleSearchText}
                       getSearchHref={getSearchHref}
+                      getDictionaryHref={getDictionaryHref}
+                      getSubjectHref={getSubjectHref}
+                      onOpenDictionary={handleOpenDictionary}
+                      onOpenDictionarySubject={handleOpenDictionarySubject}
                     />
                   ))}
                 </div>
@@ -758,7 +943,7 @@ export default function App() {
                             }
 
                             event.preventDefault();
-                            handleSelectDictionary(match.dictionary_code);
+                            handleOpenDictionary(match.dictionary_code);
                           }}
                         >
                           {match.dictionary_name}
@@ -783,10 +968,7 @@ export default function App() {
                                     }
 
                                     event.preventDefault();
-                                    setView('dictionary');
-                                    setSelectedDictCode(match.dictionary_code);
-                                    setSelectedSubject(subject);
-                                    setSelectedBucket(null);
+                                    handleOpenDictionarySubject(match.dictionary_code, subject);
                                   }}
                                 >
                                   {subject}
@@ -806,14 +988,24 @@ export default function App() {
             </div>
           )}
 
-          <footer className="app-footer hebrew-text">
-            כל הזכויות שמורות לאקדמיה ללשון העברית
+          <footer className="app-footer">
+              <div>
+                  כל הזכויות שמורות לאקדמיה ללשון העברית
+              </div>
+              <div style={{direction: 'ltr'}}>
+                source code: <br />
+                <a href="https://github.com/adielbm/hebrew-academy-terms/" target="_blank" rel="noreferrer">github.com/adielbm/hebrew-academy-terms</a>
+              </div>
           </footer>
         </div>
       )}
 
       {view === 'dictionaries' && !selectedDictCode && (
-        isDataLoaded() ? (
+        loading ? (
+          <div className="status-state notice-state">
+            <p>טוען את המילונים...</p>
+          </div>
+        ) : isDataLoaded() ? (
           <DictionaryList
             dictionaries={dictionaries}
             onSelectDictionary={handleSelectDictionary}
@@ -830,17 +1022,26 @@ export default function App() {
       )}
 
       {view === 'dictionary' && selectedDictCode && selectedDictName && (
-        isDataLoaded() ? (
+        loading ? (
+          <div className="status-state notice-state">
+            <p>טוען את המילון...</p>
+          </div>
+        ) : isDataLoaded() ? (
           <DictionaryBrowser
             dictionaryName={selectedDictName}
             dictionaryCode={selectedDictCode}
             useVowels={useVowels}
             selectedSubject={selectedSubject}
             selectedBucket={selectedBucket}
-            onSelectSubject={setSelectedSubject}
-            onSelectBucket={setSelectedBucket}
+            onSelectSubject={handleSelectSubject}
+            onSelectBucket={handleSelectBucket}
+            getDictionaryHref={getDictionaryHref}
             getSubjectHref={getSubjectHref}
             getBucketHref={getBucketHref}
+            allowAutoRedirect={navigationSourceRef.current !== 'pop'}
+            debugMode={debugMode}
+            onOpenDictionary={handleOpenDictionary}
+            onOpenDictionarySubject={handleOpenDictionarySubject}
             onTermClick={handleTermClick}
             onSearchText={handleSearchText}
             getSearchHref={getSearchHref}
@@ -857,10 +1058,28 @@ export default function App() {
 
       {view === 'preferences' && (
         <section className="preferences-panel" aria-label="העדפות מקור נתונים">
-          <h2 className="hebrew-text">העדפות מקור נתונים</h2>
-          <p>בחרו אם לטעון את הנתונים מכתובת URL או מקובץ מקומי.</p>
+          <div className="preferences-header">
+            <h2 className="hebrew-text">מקור נתונים</h2>
+                <p className="preferences-hint">קובץ JSON המכיל את כל המילונים. (הקובץ נטען ונשמר ב-IndexDB בדפדפן). <a
+                href="https://github.com/adielbm/hebrew-academy-terms/tree/main?tab=readme-ov-file"
+                target="_blank"
+                rel="noreferrer"
+              >מידע נוסף</a>
+            </p>
+          </div>
 
-          <div className="preferences-options">
+          <div className="preferences-source-summary" aria-live="polite">
+            <p className="preferences-source-summary-title">Browser DB status</p>
+            <p>Status: {isDataLoaded() ? 'Loaded and searchable' : 'Not loaded yet'}</p>
+            <p>Dictionaries in local DB: {dictionaries.length}</p>
+            <p>Total terms in local DB: {totalTermsInDb}</p>
+            <p>Saved loading mode: {activeDataSourceMode === 'local' ? 'Local file' : 'External URL download'}</p>
+            {activeDataSourceMode === 'url' && activeDataSourceUrl ? <p dir="ltr">{activeDataSourceUrl}</p> : null}
+            <p>Download progress: {loadProgress?.percentage !== null && loadProgress?.percentage !== undefined ? `${loadProgress.percentage}%` : '-'}</p>
+            <p>Indexing progress: {indexingPercentage !== null ? `${indexingPercentage}%` : '-'}</p>
+          </div>
+
+          <div className="preferences-options" role="radiogroup" aria-label="בחירת מקור נתונים">
             <label className="preferences-option">
               <input
                 type="radio"
@@ -868,7 +1087,7 @@ export default function App() {
                 checked={draftDataSourceMode === 'url'}
                 onChange={() => setDraftDataSourceMode('url')}
               />
-              <span>טעינה מכתובת URL</span>
+              <span>הורדה מכתובת URL חיצונית</span>
             </label>
 
             <label className="preferences-option">
@@ -882,32 +1101,38 @@ export default function App() {
             </label>
           </div>
 
-          <div className="preferences-field">
-            <label htmlFor="data-source-url">כתובת קובץ נתונים (URL)</label>
+          <label className="preferences-option">
             <input
-              id="data-source-url"
-              type="url"
-              value={draftDataSourceUrl}
-              onChange={(event) => setDraftDataSourceUrl(event.target.value)}
-              disabled={draftDataSourceMode !== 'url'}
-              dir="ltr"
+              type="checkbox"
+              checked={debugMode}
+              onChange={(event) => setDebugMode(event.target.checked)}
             />
-            <p className="preferences-hint">ברירת מחדל: {getDefaultDataFileUrl()}</p>
-          </div>
+            <span>Debug mode</span>
+          </label>
 
-          <div className="preferences-actions">
-            <button className="secondary" onClick={handleSavePreferences}>
-              שמירה וטעינה
-            </button>
-            <button className="secondary" onClick={handleRetryLoad}>
-              טען מחדש לפי ההעדפה הפעילה
-            </button>
-          </div>
+          <p className="preferences-hint preferences-hint-ltr">
+            כשמופעל, האפליקציה תדפיס ל-console מידע על ניווט, אזהרות ושגיאות.
+          </p>
 
-          {activeDataSourceMode === 'local' ? (
+          {draftDataSourceMode === 'url' ? (
+            <div className="preferences-field">
+              <label htmlFor="data-source-url">כתובת קובץ נתונים (URL)</label>
+              <input
+                id="data-source-url"
+                type="url"
+                value={draftDataSourceUrl}
+                onChange={(event) => setDraftDataSourceUrl(event.target.value)}
+                disabled={draftDataSourceMode !== 'url'}
+                dir="ltr"
+                placeholder="https://example.com/data.json"
+              />
+              <p className="preferences-hint preferences-hint-ltr">יש להזין URL חיצוני מלא בלבד (כולל https://).</p>
+            </div>
+          ) : null}
+
+          {draftDataSourceMode === 'local' ? (
             <div className="preferences-local-upload">
               <label className="local-data-upload-label" htmlFor="local-data-upload-input-preferences">
-                בחרו קובץ data.json מהמחשב
               </label>
               <input
                 id="local-data-upload-input-preferences"
@@ -918,13 +1143,17 @@ export default function App() {
                 }}
                 disabled={isUploadingLocalData}
               />
+
               {isUploadingLocalData ? <p>טוען את הקובץ המקומי ומאחסן בדפדפן...</p> : null}
               {uploadError ? <p>{uploadError}</p> : null}
 
               {loadProgress ? (
                 <div className="preferences-progress" aria-live="polite">
                   <p>
-                    התקדמות: {loadProgress.percentage !== null ? `${loadProgress.percentage}%` : '-'}
+                    Download progress: {loadProgress.percentage !== null ? `${loadProgress.percentage}%` : '-'}
+                  </p>
+                  <p>
+                    Indexing progress: {indexingPercentage !== null ? `${indexingPercentage}%` : '-'}
                   </p>
                   <p>
                     bytes: {formatBytes(loadProgress.loadedBytes)} / {formatBytes(loadProgress.totalBytes)}
@@ -943,16 +1172,16 @@ export default function App() {
                   </p>
                 </div>
               ) : null}
-
-              {preferencesLabel ? (
-                <p className="preferences-label" aria-live="polite">
-                  {preferencesLabel}
-                </p>
-              ) : null}
             </div>
           ) : null}
 
-          {activeDataSourceMode === 'url' && preferencesLabel ? (
+          <div className="preferences-actions">
+            <button className="secondary" onClick={handleSavePreferences}>
+              שמירה וטעינה
+            </button>
+          </div>
+
+          {preferencesLabel ? (
             <p className="preferences-label" aria-live="polite">
               {preferencesLabel}
             </p>

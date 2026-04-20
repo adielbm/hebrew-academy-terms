@@ -7,6 +7,10 @@ interface TermItemProps {
   onTermClick: (term: IndexedTerm) => void;
   onSearchText: (query: string) => void;
   getSearchHref: (query: string) => string;
+  getDictionaryHref?: (code: string) => string;
+  getSubjectHref?: (subject: string) => string;
+  onOpenDictionary?: (code: string) => void;
+  onOpenDictionarySubject?: (code: string, subject: string) => void;
 }
 
 export const TermItem: FC<TermItemProps> = ({
@@ -15,6 +19,10 @@ export const TermItem: FC<TermItemProps> = ({
   onTermClick,
   onSearchText,
   getSearchHref,
+  getDictionaryHref,
+  getSubjectHref,
+  onOpenDictionary,
+  onOpenDictionarySubject,
 }) => {
   const hebrew = useVowels ? term.haser : term.male;
   const hebrewVariants = term.raw.he ?? [];
@@ -68,6 +76,24 @@ export const TermItem: FC<TermItemProps> = ({
 
     event.preventDefault();
     onSearchText(query);
+  };
+
+  const handleNavigationLinkClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    callback: () => void
+  ) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    callback();
   };
 
   const renderCommaSeparatedLinks = (
@@ -143,6 +169,14 @@ export const TermItem: FC<TermItemProps> = ({
     );
   };
 
+  const isShortDef = (definition?: string) => {
+    if (!definition) {
+      return false;
+    }
+
+    return definition.trim().length < 15;
+  };
+
   return (
     <div className={`result-item ${term.is_obsolete ? 'obsolete' : ''}`}>
       {hebrewVariants.length > 0 && (
@@ -172,7 +206,10 @@ export const TermItem: FC<TermItemProps> = ({
             return (
               <div key={`he-${variantIndex}`}>
                 {termRows.map((row, rowIndex) => (
-                  <div className="term-row" key={`he-${variantIndex}-${row.text}-${row.source ?? rowIndex}`}>
+                  <div
+                    className={`term-row ${rowIndex === 0 && isShortDef(variant.def) ? 'term-row-single-line' : ''}`.trim()}
+                    key={`he-${variantIndex}-${row.text}-${row.source ?? rowIndex}`}
+                  >
                     <span className="term-row-main hebrew-text">
                       <a
                         className="term-link hebrew-text"
@@ -218,7 +255,10 @@ export const TermItem: FC<TermItemProps> = ({
           {englishEntries
             .filter((entry) => entry.term.trim().length > 0)
             .map((entry, index) => (
-              <div className="term-row term-row-ltr" key={`en-${entry.term}-${index}`}>
+              <div
+                className={`term-row term-row-ltr ${isShortDef(entry.def) ? 'term-row-single-line' : ''}`.trim()}
+                key={`en-${entry.term}-${index}`}
+              >
                 <div className="term-row-main english-text">
                   <a
                     className="term-link english-text"
@@ -247,7 +287,10 @@ export const TermItem: FC<TermItemProps> = ({
           {latinEntries
             .filter((entry) => entry.term.trim().length > 0)
             .map((entry, index) => (
-              <div className="term-row term-row-ltr" key={`la-${entry.term}-${index}`}>
+              <div
+                className={`term-row term-row-ltr ${isShortDef(entry.def) ? 'term-row-single-line' : ''}`.trim()}
+                key={`la-${entry.term}-${index}`}
+              >
                 <div className="term-row-main latin-text">
                   <a
                     className="term-link latin-text"
@@ -298,8 +341,42 @@ export const TermItem: FC<TermItemProps> = ({
         {term.dictionary_year && (
           <span>{term.dictionary_year}</span>
         )}
-        <span className="dictionary-name">{term.dictionary_name}, </span>
-        {term.subject && <span className="dictionary-subject">{term.subject} </span>}
+        {getDictionaryHref ? (
+          <a
+            className="dictionary-name term-link"
+            href={getDictionaryHref(term.dictionary_code)}
+            onClick={(event) =>
+              onOpenDictionary
+                ? handleNavigationLinkClick(event, () => {
+                    onOpenDictionary(term.dictionary_code);
+                  })
+                : undefined
+            }
+          >
+            {term.dictionary_name}
+          </a>
+        ) : (
+          <span className="dictionary-name">{term.dictionary_name}</span>
+        )}
+        <span>, </span>
+        {term.subject &&
+          (getSubjectHref ? (
+            <a
+              className="dictionary-subject term-link"
+              href={getSubjectHref(term.subject)}
+              onClick={(event) =>
+                onOpenDictionarySubject
+                  ? handleNavigationLinkClick(event, () => {
+                      onOpenDictionarySubject(term.dictionary_code, term.subject as string);
+                    })
+                  : undefined
+              }
+            >
+              {term.subject}
+            </a>
+          ) : (
+            <span className="dictionary-subject">{term.subject}</span>
+          ))}
       </div>
     </div>
   );
