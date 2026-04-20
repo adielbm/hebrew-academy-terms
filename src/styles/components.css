@@ -24,7 +24,6 @@
   min-width: 88px;
   border: 1px solid var(--color-border);
   background: var(--color-bg-light);
-  color: var(--color-text);
 }
 
 .spelling-toggle button:hover {
@@ -121,6 +120,12 @@
   border-radius: 0;
   background-color: var(--color-bg);
   transition: none;
+}
+
+@media (max-width: 768px) {
+  .result-item {
+    padding: var(--spacing-sm) 0;
+  }
 }
 
 .result-item:first-child {
@@ -367,7 +372,6 @@
 /* Tabs and Views */
 .view-tabs {
   display: flex;
-  gap: var(--spacing-md);
   border-bottom: 1px solid var(--color-border);
   margin-bottom: var(--spacing-lg);
 }
@@ -377,23 +381,21 @@
 }
 
 .view-tab {
-  padding: var(--spacing-md) var(--spacing-lg);
+  padding: var(--spacing-sm);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   cursor: pointer;
-  color: var(--color-text-light);
   transition: none;
 }
 
 .view-tab.active {
-  color: var(--color-text);
   background: var(--color-bg-light);
 }
 
 .view-tab:hover {
-  color: var(--color-text-light);
   text-decoration: none;
+  background: var(--color-bg-light);
 }
 
 /* Dictionary List */
@@ -526,10 +528,6 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: var(--spacing-sm);
-  margin-bottom: var(--spacing-sm);
-  gap: var(--spacing-md);
 }
 
 .dictionary-header button {
@@ -706,9 +704,6 @@
 .preferences-panel {
   display: grid;
   gap: var(--spacing-md);
-  padding: var(--spacing-md);
-  border: 1px solid var(--color-border);
-  background-color: var(--color-bg);
 }
 
 .preferences-header {
@@ -731,6 +726,7 @@
   border: 1px solid var(--color-border);
   background-color: var(--color-bg-light);
   text-align: left;
+  direction: ltr;
 }
 
 .preferences-source-summary-title {
@@ -787,6 +783,13 @@
 .preferences-progress p {
   margin-bottom: 0;
   font-size: 0.92rem;
+}
+
+.preferences-progress-inline {
+  margin-top: var(--spacing-xs);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .preferences-label {
@@ -1019,10 +1022,8 @@
 
 @media (max-width: 480px) {
   .app-container {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
   }
-
-
 
   input,
   button {
@@ -1038,8 +1039,11 @@
   margin-top: var(--spacing-xl);
   padding-top: var(--spacing-md);
   color: var(--color-text-light);
-  text-align: center;
-  font-size: x-small;
+  font-size: small;
   display: grid;
   gap: var(--spacing-md);
+}
+
+input[type="file"] {
+    width: 100%;
 }

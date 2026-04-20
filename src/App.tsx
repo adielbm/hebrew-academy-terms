@@ -18,6 +18,7 @@ import { SearchBar } from './components/SearchBar';
 import { TermItem } from './components/TermItem';
 import { DictionaryList } from './components/DictionaryList';
 import { DictionaryBrowser } from './components/DictionaryBrowser';
+import { Footer } from './components/Footer';
 import './styles/components.css';
 
 type View = 'search' | 'dictionaries' | 'dictionary' | 'preferences';
@@ -803,7 +804,7 @@ export default function App() {
       </div>
 
       <div className="app-header">
-        <h1 className="hebrew-text">מונחי האקדמיה ללשון העברית</h1>
+        <b className="hebrew-text">מונחי האקדמיה ללשון העברית</b>
         <p className="hebrew-text">המילונים המקצועיים והמילים בשימוש כללי של ועד הלשון ושל האקדמיה ללשון העברית</p>
       </div>
 
@@ -988,15 +989,6 @@ export default function App() {
             </div>
           )}
 
-          <footer className="app-footer">
-              <div>
-                  כל הזכויות שמורות לאקדמיה ללשון העברית
-              </div>
-              <div style={{direction: 'ltr'}}>
-                source code: <br />
-                <a href="https://github.com/adielbm/hebrew-academy-terms/" target="_blank" rel="noreferrer">github.com/adielbm/hebrew-academy-terms</a>
-              </div>
-          </footer>
         </div>
       )}
 
@@ -1059,7 +1051,7 @@ export default function App() {
       {view === 'preferences' && (
         <section className="preferences-panel" aria-label="העדפות מקור נתונים">
           <div className="preferences-header">
-            <h2 className="hebrew-text">מקור נתונים</h2>
+            <b className="hebrew-text">מקור נתונים</b>
                 <p className="preferences-hint">קובץ JSON המכיל את כל המילונים. (הקובץ נטען ונשמר ב-IndexDB בדפדפן). <a
                 href="https://github.com/adielbm/hebrew-academy-terms/tree/main?tab=readme-ov-file"
                 target="_blank"
@@ -1068,16 +1060,6 @@ export default function App() {
             </p>
           </div>
 
-          <div className="preferences-source-summary" aria-live="polite">
-            <p className="preferences-source-summary-title">Browser DB status</p>
-            <p>Status: {isDataLoaded() ? 'Loaded and searchable' : 'Not loaded yet'}</p>
-            <p>Dictionaries in local DB: {dictionaries.length}</p>
-            <p>Total terms in local DB: {totalTermsInDb}</p>
-            <p>Saved loading mode: {activeDataSourceMode === 'local' ? 'Local file' : 'External URL download'}</p>
-            {activeDataSourceMode === 'url' && activeDataSourceUrl ? <p dir="ltr">{activeDataSourceUrl}</p> : null}
-            <p>Download progress: {loadProgress?.percentage !== null && loadProgress?.percentage !== undefined ? `${loadProgress.percentage}%` : '-'}</p>
-            <p>Indexing progress: {indexingPercentage !== null ? `${indexingPercentage}%` : '-'}</p>
-          </div>
 
           <div className="preferences-options" role="radiogroup" aria-label="בחירת מקור נתונים">
             <label className="preferences-option">
@@ -1101,18 +1083,7 @@ export default function App() {
             </label>
           </div>
 
-          <label className="preferences-option">
-            <input
-              type="checkbox"
-              checked={debugMode}
-              onChange={(event) => setDebugMode(event.target.checked)}
-            />
-            <span>Debug mode</span>
-          </label>
-
-          <p className="preferences-hint preferences-hint-ltr">
-            כשמופעל, האפליקציה תדפיס ל-console מידע על ניווט, אזהרות ושגיאות.
-          </p>
+    
 
           {draftDataSourceMode === 'url' ? (
             <div className="preferences-field">
@@ -1146,32 +1117,6 @@ export default function App() {
 
               {isUploadingLocalData ? <p>טוען את הקובץ המקומי ומאחסן בדפדפן...</p> : null}
               {uploadError ? <p>{uploadError}</p> : null}
-
-              {loadProgress ? (
-                <div className="preferences-progress" aria-live="polite">
-                  <p>
-                    Download progress: {loadProgress.percentage !== null ? `${loadProgress.percentage}%` : '-'}
-                  </p>
-                  <p>
-                    Indexing progress: {indexingPercentage !== null ? `${indexingPercentage}%` : '-'}
-                  </p>
-                  <p>
-                    bytes: {formatBytes(loadProgress.loadedBytes)} / {formatBytes(loadProgress.totalBytes)}
-                  </p>
-                  <p>
-                    remaining: {formatBytes(loadProgress.remainingBytes)}
-                  </p>
-                  <p>
-                    parsed dictionaries: {loadProgress.parsedElements}
-                  </p>
-                  <p>
-                    indexed terms: {loadProgress.indexedTerms}
-                  </p>
-                  <p>
-                    state: {loadProgress.isComplete ? 'complete' : 'in-progress'}
-                  </p>
-                </div>
-              ) : null}
             </div>
           ) : null}
 
@@ -1181,6 +1126,52 @@ export default function App() {
             </button>
           </div>
 
+          <div className="preferences-source-summary" aria-live="polite">
+            <p className="preferences-source-summary-title">status:</p>
+            <p>{isDataLoaded() ? 'Loaded and searchable' : 'Not loaded yet'}</p>
+            <p>#dictionaries: {dictionaries.length}</p>
+            <p>#terms: {totalTermsInDb}</p>
+            <p>{activeDataSourceMode === 'local' ? 'Local file' : 'External URL download'}</p>
+            {activeDataSourceMode === 'url' && activeDataSourceUrl ? <p dir="ltr">{activeDataSourceUrl}</p> : null}
+            <p>Download progress: {loadProgress?.percentage !== null && loadProgress?.percentage !== undefined ? `${loadProgress.percentage}%` : '-'}</p>
+            <p>Indexing progress: {indexingPercentage !== null ? `${indexingPercentage}%` : '-'}</p>
+            {loadProgress ? (
+              <div className="preferences-progress preferences-progress-inline">
+                <p>
+                  bytes: {formatBytes(loadProgress.loadedBytes)} / {formatBytes(loadProgress.totalBytes)}
+                </p>
+                <p>
+                  remaining: {formatBytes(loadProgress.remainingBytes)}
+                </p>
+                <p>
+                  parsed dictionaries: {loadProgress.parsedElements}
+                </p>
+                <p>
+                  indexed terms: {loadProgress.indexedTerms}
+                </p>
+                <p>
+                  state: {loadProgress.isComplete ? 'complete' : 'in-progress'}
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+
+
+
+                <hr />
+          <label className="preferences-option" 
+            style={{ direction: 'ltr' }}
+          >
+            <input
+              type="checkbox"
+              checked={debugMode}
+              onChange={(event) => setDebugMode(event.target.checked)}
+            />
+            <span>Debug mode</span>
+          </label>
+
+
           {preferencesLabel ? (
             <p className="preferences-label" aria-live="polite">
               {preferencesLabel}
@@ -1188,6 +1179,8 @@ export default function App() {
           ) : null}
         </section>
       )}
+
+      <Footer />
     </div>
   );
 }

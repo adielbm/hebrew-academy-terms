@@ -207,9 +207,9 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
     <div className="dictionary-browser">
       <div className="dictionary-header">
         <div>
-          <h2 className="hebrew-text" style={{ margin: 0 }}>
+          <b className="hebrew-text" style={{ margin: 0 }}>
             {dictionaryName}
-          </h2>
+          </b>
         </div>
       </div>
 
@@ -241,9 +241,9 @@ export const DictionaryBrowser: FC<DictionaryBrowserProps> = ({
       ) : (
         <div className="results-container">
           <div className="dictionary-header subject-header">
-            <h3 className="hebrew-text" style={{ margin: 0 }}>
+            <b className="hebrew-text" style={{ margin: 0 }}>
               {selectedSubject}
-            </h3>
+            </b>
           </div>
 
           {subjectTerms.length > SUBJECT_TERM_CHUNK_THRESHOLD && (

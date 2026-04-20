@@ -134,12 +134,12 @@
   --color-text-light: var(--flexoki-600);
   --color-border: var(--flexoki-400);
   --color-border-light: var(--flexoki-200);
-  --color-accent: var(--flexoki-blue-600);
+  --color-accent: var(--flexoki-cyan-600);
   --color-accent-hover: var(--flexoki-blue-700);
   --color-bg-light: var(--flexoki-50);
   --color-obsolete: var(--flexoki-500);
   --color-success: var(--flexoki-green-700);
-  --color-link-hover: var(--flexoki-blue-600);
+  --color-link-hover: var(--flexoki-cyan-600);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -149,11 +149,11 @@
     --color-text-light: var(--flexoki-400);
     --color-border: var(--flexoki-700);
     --color-border-light: var(--flexoki-800);
-    --color-accent: var(--flexoki-blue-300);
+    --color-accent: var(--flexoki-cyan-300);
     --color-accent-hover: var(--flexoki-blue-200);
     --color-bg-light: var(--flexoki-900);
     --color-obsolete: var(--flexoki-500);
     --color-success: var(--flexoki-green-300);
-    --color-link-hover: var(--flexoki-blue-200);
+    --color-link-hover: var(--flexoki-cyan-200);
   }
 }
